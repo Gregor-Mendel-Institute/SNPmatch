@@ -17,7 +17,7 @@ def get_options():
   inOptions.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   inOptions.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
   inOptions.add_argument("-o", "--output", dest="outFile", help="Output file with the probability scores")
-  inOptions.add_argument("-t", "--input_type", dest="input_type", help="Type of the Input given. Possible inputs: 'vcf', 'bed'")
+  inOptions.add_argument("-t", "--input_type", dest="inType", help="Type of the Input given. Possible inputs: 'vcf', 'bed'")
   return inOptions
 
 def main():
