@@ -32,9 +32,6 @@ def main():
   except KeyboardInterrupt:
     ### handle keyboard interrupt ###
     return 0
-  except Exception as e:
-    log.exception(e)
-    return 2
  
 
 def snpmatch(args):
