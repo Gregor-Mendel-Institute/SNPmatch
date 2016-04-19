@@ -27,6 +27,15 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=[
     ],
+    install_requires=[
+        "numpy >=1.6.1",
+        "scipy >=0.13.0",
+        "h5py >=2.1.3",
+        "matplotlib >= 1.4.3"
+        "pygwas >= 1.0.0"
+        "vcfnp"
+        "pandas"
+    ],
     entry_points={
         'console_scripts': [
             'snpmatch=snpmatch:main'

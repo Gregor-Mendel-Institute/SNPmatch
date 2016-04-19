@@ -11,5 +11,3 @@ The main SNP database should be a HDF5 file with specific keys. Mainly read usin
 
 
 
-Usage:
-
