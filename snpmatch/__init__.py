@@ -22,19 +22,19 @@ def get_options():
 
 def main():
   parser = get_options()
+  args = vars(parser.parse_args())
   if args['inType'] is None:
     parser.print_help()
     return 0
   try:
-    snpmatch(parser)
+    snpmatch(args)
     return 0
   except KeyboardInterrupt:
     ### handle keyboard interrupt ###
     return 0
  
 
-def snpmatch(parser):
-  args = vars(parser.parse_args())
+def snpmatch(args):
   if args['inType'] is "vcf":
     snpmatch.match_vcf_to_acc(args)
   elif args['inType'] is "bed":
