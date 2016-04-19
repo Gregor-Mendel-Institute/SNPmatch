@@ -78,7 +78,7 @@ def match_bed_to_acc(args):
         NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     logging.info("Done analysing %s positions", NumMatSNPs)
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-  print_out_table(GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
+  print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
 
 
 def match_vcf_to_acc(args):
@@ -130,7 +130,7 @@ def match_vcf_to_acc(args):
         NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     logging.info("Done analysing %s positions", NumMatSNPs)
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-  print_out_table(GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
+  print_out_table(args['outFile'], GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
 
   
 
