@@ -38,6 +38,7 @@ def snpmatch(args):
   if args['inType'] is "vcf":
     snpmatch.match_vcf_to_acc(args)
   elif args['inType'] is "bed":
+    print "Going into bed file"
     snpmatch.match_bed_to_acc(args)
 
 
