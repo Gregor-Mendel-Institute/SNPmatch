@@ -28,7 +28,7 @@ setup(
     install_requires=[
         "numpy >=1.6.1",
         "scipy",
-        "PyGWAS >= 1.0.0",
+        "PyGWAS",
         "vcfnp",
         "pandas"
     ],
