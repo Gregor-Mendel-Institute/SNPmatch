@@ -21,10 +21,9 @@ def get_options():
   return inOptions
 
 def snpmatch(args):
-  if args['inType'] is "vcf":
+  if args['inType'] == "vcf":
     snpmatch.match_vcf_to_acc(args)
-  elif args['inType'] is "bed":
-    print "Going into bed file"
+  elif args['inType'] == "bed":
     snpmatch.match_bed_to_acc(args)
 
 def main():
