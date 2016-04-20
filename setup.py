@@ -27,7 +27,7 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=[
         "numpy >=1.6.1",
-        "scipy >=0.13.0",
+        "scipy",
         "PyGWAS >= 1.0.0",
         "vcfnp",
         "pandas"
