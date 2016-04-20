@@ -20,6 +20,13 @@ def get_options():
   inOptions.add_argument("-t", "--input_type", dest="inType", help="Type of the Input given. Possible inputs: 'vcf', 'bed'")
   return inOptions
 
+def snpmatch(args):
+  if args['inType'] is "vcf":
+    snpmatch.match_vcf_to_acc(args)
+  elif args['inType'] is "bed":
+    print "Going into bed file"
+    snpmatch.match_bed_to_acc(args)
+
 def main():
   parser = get_options()
   args = vars(parser.parse_args())
@@ -32,16 +39,7 @@ def main():
   except KeyboardInterrupt:
     ### handle keyboard interrupt ###
     return 0
- 
 
-def snpmatch(args):
-  if args['inType'] is "vcf":
-    snpmatch.match_vcf_to_acc(args)
-  elif args['inType'] is "bed":
-    print "Going into bed file"
-    snpmatch.match_bed_to_acc(args)
-
-
-if __name__=='__main__':
-  sys.exit(main())
+#if __name__=='__main__':
+#  sys.exit(main())
 
