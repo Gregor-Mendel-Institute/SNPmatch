@@ -31,14 +31,11 @@ def main():
   parser = get_options()
   args = vars(parser.parse_args())
   if args['inType'] is not None:
-  try:
     snpmatch(args)
     return 0
-  except KeyboardInterrupt:
-    ### handle keyboard interrupt ###
-    return 0
   else:
-    parser.print_help() 
+    parser.print_help()
+    return 0 
 
 if __name__=='__main__':
   sys.exit(main())
