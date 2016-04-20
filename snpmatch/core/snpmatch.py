@@ -3,7 +3,7 @@
 """
 import numpy
 import numpy.ma
-import pygwas
+from pygwas.core import genotype
 import vcfnp
 import pandas
 import scipy
@@ -27,18 +27,19 @@ def likeliTest(n, y):
     return numpy.nan
 
 def calculate_likelihoods(ScoreList, NumInfoSites):
+  num_lines = len(ScoreList)
   LikeLiHoods = [likeliTest(NumInfoSites[i], int(ScoreList[i])) for i in range(num_lines)]
   LikeLiHoods = numpy.array(LikeLiHoods).astype("float")
   TopHit = numpy.amin(LikeLiHoods)
   LikeLiHoodRatios = [LikeLiHoods[i]/TopHit for i in range(num_lines)]
-  LikeLiHoodRatios = numpy.array(LikeLiHoodRatio).astype("float")
+  LikeLiHoodRatios = numpy.array(LikeLiHoodRatios).astype("float")
   return (LikeLiHoods, LikeLiHoodRatios)
 
 def print_out_table(outFile, GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs):
   out = open(outFile, 'w')
   for i in range(len(GenotypeData.accessions)):
     score = float(ScoreList[i])/NumInfoSites[i]
-    out.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatio[i], NumMatSNPs))
+    out.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs))
   out.close()
 
 def match_bed_to_acc(args):
@@ -47,8 +48,8 @@ def match_bed_to_acc(args):
   snpCHR = numpy.array(targetSNPs[0], dtype=int)
   snpPOS = numpy.array(targetSNPs[1], dtype=int)
   snpGT = numpy.array(targetSNPs[2])
-  GenotypeData = pygwas.genotype.load_hdf5_genotype_data(args['hdf5File'])
-  GenotypeData_acc = pygwas.genotype.load_hdf5_genotype_data(args['hdf5accFile'])
+  GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
+  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
   num_lines = len(GenotypeData.accessions)
   ScoreList = numpy.zeros(num_lines, dtype="float")
   NumInfoSites = numpy.zeros(len(GenotypeData.accessions), dtype="uint32")
@@ -94,8 +95,8 @@ def match_vcf_to_acc(args):
   snpWEI = snpWEI.astype(float)
   snpWEI = snpWEI/(-10)
   snpWEI = numpy.exp(snpWEI)
-  GenotypeData = pygwas.genotype.load_hdf5_genotype_data(args['hdf5File'])
-  GenotypeData_acc = pygwas.genotype.load_hdf5_genotype_data(args['hdf5accFile'])
+  GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
+  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
   num_lines = len(GenotypeData.accessions)
   ScoreList = numpy.zeros(num_lines, dtype="float")
   NumInfoSites = numpy.zeros(len(GenotypeData.accessions), dtype="uint32")
