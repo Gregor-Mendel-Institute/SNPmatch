@@ -20,7 +20,7 @@ def get_options():
   inOptions.add_argument("-t", "--input_type", dest="inType", help="Type of the Input given. Possible inputs: 'vcf', 'bed'")
   return inOptions
 
-def snpmatch(args):
+def run_snpmatch(args):
   if args['inType'] == "vcf":
     snpmatch.match_vcf_to_acc(args)
   elif args['inType'] == "bed":
@@ -30,7 +30,7 @@ def main():
   parser = get_options()
   args = vars(parser.parse_args())
   if args['inType'] is not None:
-    snpmatch(args)
+    run_snpmatch(args)
     return 0
   else:
     parser.print_help()
