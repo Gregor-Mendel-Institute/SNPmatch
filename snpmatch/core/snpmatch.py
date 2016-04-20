@@ -6,10 +6,7 @@ import numpy.ma
 from pygwas.core import genotype
 import vcfnp
 import pandas
-import scipy
-import math
 import argparse
-import sys
 import logging
 
 logging.basicConfig(format='%(levelname)s:%(asctime)s:  %(message)s', level=logging.DEBUG)
@@ -18,8 +15,8 @@ def likeliTest(n, y):
   p = 0.999999
   if n > 0:
     pS = float(y)/n
-    a = y * scipy.log(pS/p)
-    b = (n - y) * scipy.log((1-pS)/(1-p))
+    a = y * numpy.log(pS/p)
+    b = (n - y) * numpy.log((1-pS)/(1-p))
     return(a+b)
   elif n == y:
     return 1
