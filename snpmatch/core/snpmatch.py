@@ -8,8 +8,14 @@ import vcfnp
 import pandas
 import argparse
 import logging
+import sys
+import os.path
 
 logging.basicConfig(format='%(levelname)s:%(asctime)s:  %(message)s', level=logging.DEBUG)
+
+def die(msg):
+  sys.stderr.write('Error: ' + msg + '\n')
+  sys.exit(1)
 
 def likeliTest(n, y):
   p = 0.999999
