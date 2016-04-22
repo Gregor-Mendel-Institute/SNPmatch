@@ -21,14 +21,14 @@ def getBins(g, binLen):
   chrlen = np.array((30427671, 19698289, 23459830, 18585056, 26975502))  # Arabidopsis chromosome length
   ChrIndex = np.zeros(0,dtype="int8")
   LenBins = np.zeros(0, dtype="int16")
-  for i in range(5):
-    start = g.chr_regions[i][0]
-    end = g.chr_regions[i][1]
+  for i in np.array(g.chrs, dtype=int):
+    start = g.chr_regions[i-1][0]
+    end = g.chr_regions[i-1][1]
     chr_pos = g.positions[start:end]
-    for j in range(0, chrlen[i], binLen):
+    for j in range(0, chrlen[i-1], binLen):
       bin_pos = len(np.where((chr_pos >= j) & (chr_pos < j + binLen))[0])
       LenBins = np.append(LenBins, bin_pos)
-      ChrIndex = np.append(ChrIndex, i+1)
+      ChrIndex = np.append(ChrIndex, i)
   return(ChrIndex, LenBins)
 
 def likeliTest(n, y):
@@ -73,9 +73,10 @@ def match_bed_to_acc(args):
   NumInfoSites = np.zeros(len(GenotypeData.accessions), dtype="uint32")
   NumMatSNPs = 0
   chunk_size = 1000
+  lr_thres = 3.841
   TotScoreList = np.zeros(num_lines, dtype="uint32")
   TotNumInfoSites = np.zeros(num_lines, dtype="uint32")
-  (ChrBins, PosBins) = getBins(GenotypeData, options.binLen)
+  (ChrBins, PosBins) = getBins(GenotypeData, args['binLen'])
   outfile = open(args['scoreFile'], 'w')
   for i in range(len(PosBins)):
     start = np.sum(PosBins[0:i])
@@ -111,19 +112,19 @@ def match_bed_to_acc(args):
       likeliHoodRatio = [likeliScore[k]/TopHit for k in range(num_lines)]
       likeliHoodRatio = np.array(likeliHoodRatio)
       TopHitAcc = np.where(likeliHoodRatio == 1)[0]
-      NumAmb = np.where(likeliHoodRatio < options.LRthres)[0]
+      NumAmb = np.where(likeliHoodRatio < lr_thres)[0]
       if len(TopHitAcc) == 1:
         t = TopHitAcc[0]
         score = float(ScoreList[t])/NumInfoSites[t]
-        if len(np.where(likeliHoodRatio >= options.LRthres)[0]) > 0:
-          nextLikeli = np.nanmin(likeliHoodRatio[np.where(likeliHoodRatio >= options.LRthres)[0]])
+        if len(np.where(likeliHoodRatio >= lr_thres)[0]) > 0:
+          nextLikeli = np.nanmin(likeliHoodRatio[np.where(likeliHoodRatio >= lr_thres)[0]])
           outfile.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[t], ScoreList[t], NumInfoSites[t], score, likeliScore[t], nextLikeli, len(NumAmb), i+1))
         else:
           nextLikeli = np.nanmin(likeliHoodRatio[np.where(likeliHoodRatio >= 1)[0]])
           outfile.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[t], ScoreList[t], NumInfoSites[t], score, likeliScore[t], nextLikeli, len(NumAmb), i+1))
       elif len(TopHitAcc) > 1:
-        if len(np.where(likeliHoodRatio >= options.LRthres)[0]) > 0:
-          nextLikeli = np.nanmin(likeliHoodRatio[np.where(likeliHoodRatio >= options.LRthres)[0]])
+        if len(np.where(likeliHoodRatio >= lr_thres)[0]) > 0:
+          nextLikeli = np.nanmin(likeliHoodRatio[np.where(likeliHoodRatio >= lr_thres)[0]])
           for k in range(len(TopHitAcc)):
             t = TopHitAcc[k]
             score = float(ScoreList[t])/NumInfoSites[t]
