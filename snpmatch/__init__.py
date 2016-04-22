@@ -44,9 +44,9 @@ def snpmatch_inbred(args):
 
 def snpmatch_cross(args):
   if args['inType'] == "vcf":
-    csmatch.cross_match_vcf_to_acc(args)
+    csmatch.match_vcf_to_acc(args)
   elif args['inType'] == "bed":
-    csmatch.cross_match_bed_to_acc(args)
+    csmatch.match_bed_to_acc(args)
 
 def main():
   parser = get_options()
