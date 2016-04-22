@@ -18,6 +18,7 @@ def die(msg):
   sys.exit(1)
 
 def getBins(g, binLen):
+  binLen = int(binLen)
   chrlen = np.array((30427671, 19698289, 23459830, 18585056, 26975502))  # Arabidopsis chromosome length
   ChrIndex = np.zeros(0,dtype="int8")
   LenBins = np.zeros(0, dtype="int16")
