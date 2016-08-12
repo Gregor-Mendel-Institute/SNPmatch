@@ -187,9 +187,9 @@ def match_vcf_to_acc(args):
       tempScore1 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs1, dtype=int).T, matchedTarWei[j:j+chunk_size,1]).T, axis=0)
       tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[j:j+chunk_size,2]).T, axis=0)
       ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
-      if(len(TarGTs[j:j+chunk_size]) > 1):
+      if(len(TarGTs0[j:j+chunk_size]) > 1):
         NumInfoSites = NumInfoSites + len(TarGTs0[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0)
-      elif(len(TarGTs[j:j+chunk_size]) == 1):
+      elif(len(TarGTs0[j:j+chunk_size]) == 1):
         NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     if i % 10 == 0:
       logging.info("Done analysing %s positions", NumMatSNPs)
