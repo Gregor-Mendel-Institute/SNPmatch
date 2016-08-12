@@ -75,7 +75,7 @@ def match_bed_to_acc(args):
   TotScoreList = np.zeros(num_lines, dtype="uint32")
   TotNumInfoSites = np.zeros(num_lines, dtype="uint32")
   (ChrBins, PosBins) = getBins(GenotypeData, args['binLen'])
-  outfile = open(args['scoreFile'], 'w')
+  outfile = open(args['outFile'], 'w')
   for i in range(len(PosBins)):
     start = np.sum(PosBins[0:i])
     end = start + PosBins[i]
@@ -134,7 +134,7 @@ def match_bed_to_acc(args):
             score = float(ScoreList[t])/NumInfoSites[t]
             outfile.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[t], ScoreList[t], NumInfoSites[t], score, likeliScore[t], nextLikeli, len(NumAmb), i+1))
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(TotScoreList, TotNumInfoSites)
-  print_out_table(args['outFile'],GenotypeData, TotScoreList, TotNumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
+  print_out_table(args['scoreFile'],GenotypeData, TotScoreList, TotNumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
 
 
 
@@ -162,7 +162,7 @@ def match_vcf_to_acc(args):
   TotScoreList = np.zeros(num_lines, dtype="uint32")
   TotNumInfoSites = np.zeros(num_lines, dtype="uint32")
   (ChrBins, PosBins) = getBins(GenotypeData, args['binLen'])
-  outfile = open(args['scoreFile'], 'w')
+  outfile = open(args['outFile'], 'w')
   for i in range(len(PosBins)):
     start = np.sum(PosBins[0:i])
     end = start + PosBins[i]
@@ -226,5 +226,5 @@ def match_vcf_to_acc(args):
             score = float(ScoreList[t])/NumInfoSites[t]
             outfile.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[t], ScoreList[t], NumInfoSites[t], score, likeliScore[t], nextLikeli, len(NumAmb), i+1))
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(TotScoreList, TotNumInfoSites)
-  print_out_table(args['outFile'],GenotypeData, TotScoreList, TotNumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
+  print_out_table(args['scoreFile'],GenotypeData, TotScoreList, TotNumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
 
