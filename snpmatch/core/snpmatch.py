@@ -38,11 +38,11 @@ def calculate_likelihoods(ScoreList, NumInfoSites):
   LikeLiHoodRatios = np.array(LikeLiHoodRatios).astype("float")
   return (LikeLiHoods, LikeLiHoodRatios)
 
-def print_out_table(outFile, GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs):
+def print_out_table(outFile, GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, DPmean):
   out = open(outFile, 'w')
   for i in range(len(GenotypeData.accessions)):
     score = float(ScoreList[i])/NumInfoSites[i]
-    out.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs))
+    out.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs, DPmean))
   out.close()
 
 def match_bed_to_acc(args):
@@ -82,7 +82,7 @@ def match_bed_to_acc(args):
         NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     logging.info("Done analysing %s positions", NumMatSNPs)
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-  print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
+  print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, "NA")
 
 
 def match_vcf_to_acc(args):
@@ -90,6 +90,7 @@ def match_vcf_to_acc(args):
   vcf = vcfnp.variants(args['inFile'], cache=False).view(np.recarray)
   vcfD = vcfnp.calldata_2d(args['inFile'], cache=False).view(np.recarray)
   DPthres = np.mean(vcf.DP[np.where(vcf.DP > 0)[0]]) * 4
+  DPmean = DPthres/4
   snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres))[0]
   snpCHR = np.array(np.char.replace(vcf.CHROM[snpsREQ], "Chr", "")).astype("int8")
   snpPOS = np.array(vcf.POS[snpsREQ]) 
@@ -134,7 +135,7 @@ def match_vcf_to_acc(args):
         NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     logging.info("Done analysing %s positions", NumMatSNPs)
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-  print_out_table(args['outFile'], GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs)
+  print_out_table(args['outFile'], GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, DPmean)
 
   
 
