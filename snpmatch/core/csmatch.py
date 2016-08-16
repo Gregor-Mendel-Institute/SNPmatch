@@ -9,13 +9,14 @@ import pandas
 import argparse
 import logging
 import sys
-import os.path
+import os
 
-logging.basicConfig(format='%(levelname)s:%(asctime)s:  %(message)s', level=logging.DEBUG)
+if args['logDebug']:
+  numeric_level = getattr(logging, "DEBUG", None)
+else:
+  numeric_level = getattr(logging, "CRITICAL", None)
+logging.basicConfig(format='%(levelname)s:%(asctime)s:  %(message)s', level=numeric_level)
 
-def die(msg):
-  sys.stderr.write('Error: ' + msg + '\n')
-  sys.exit(1)
 
 def getBins(g, binLen):
   binLen = int(binLen)

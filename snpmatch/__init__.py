@@ -1,15 +1,19 @@
 """
     snpmatch
     ~~~~~~~~~~~~~
-    The main module for running SNPmatch
+    The main module for running snpmatch
     :copyright: year by my name, see AUTHORS for more details
     :license: license_name, see LICENSE for more details
 """
-
+import os
 import argparse
 import sys
 from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
+
+def die(msg):
+  sys.stderr.write('Error: ' + msg + '\n')
+  sys.exit(1)
 
 
 def get_options():
@@ -21,6 +25,7 @@ def get_options():
   inbred_parser.add_argument("-t", "--input_type", dest="inType", help="Type of the input file given. Possible inputs: 'vcf', 'bed'")
   inbred_parser.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   inbred_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
+  inbred_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   inbred_parser.add_argument("-o", "--output", dest="outFile", help="Output file with the probability scores")
   inbred_parser.set_defaults(func=snpmatch_inbred)
   
@@ -29,20 +34,43 @@ def get_options():
   cross_parser.add_argument("-t", "--input_type", dest="inType", help="Type of the input file given. Possible inputs: 'vcf', 'bed'")
   cross_parser.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   cross_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
+  cross_parser.add_argument("-b", "--binLength", dest="binLen", help="Length of bins to calculate the likelihoods", default=300000)
+  cross_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   cross_parser.add_argument("-o", "--output", dest="outFile", help="Output file with the probability scores")
   cross_parser.add_argument("-s", "--scoreFile", dest="scoreFile", help="Output of score files in each windows")
-  cross_parser.add_argument("-b", "--binLength", dest="binLen", help="Length of bins to calculate the likelihoods", default=300000)
   cross_parser.set_defaults(func=snpmatch_cross)
   
   return inOptions
 
+def checkARGs(args):
+  if not args['hdf5File']:
+    die("hdf5_file not specified")
+  if not args['hdf5accFile']:
+    die("hdf5accFile not specified")
+  if not args['inType']:
+    die("not mentioned the type of input")
+  if not args['inFile']:
+    die("input file not specified")
+  if not os.path.isfile(args['hdf5File']):
+    die("hdf5_file does not exist: " + args['hdf5File'])
+  if not os.path.isfile(args['hdf5accFile']):
+    die("hdf5accFile does not exist: " + args['hdf5accFile'])
+  if not os.path.isfile(args['inFile']):
+    die("input file does not exist: " + args['inFile'])
+
 def snpmatch_inbred(args):
+  checkARGs(args)
   if args['inType'] == "vcf":
     snpmatch.match_vcf_to_acc(args)
   elif args['inType'] == "bed":
     snpmatch.match_bed_to_acc(args)
 
 def snpmatch_cross(args):
+  checkARGs(args)
+  if not args['output']:
+    die("specify an output file")
+  if not args['scoreFile']:
+    die("file to give out scores is not specified")
   if args['inType'] == "vcf":
     csmatch.match_vcf_to_acc(args)
   elif args['inType'] == "bed":

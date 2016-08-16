@@ -11,7 +11,13 @@ import logging
 import sys
 import os.path
 
-logging.basicConfig(format='%(levelname)s:%(asctime)s:  %(message)s', level=logging.DEBUG)
+
+if args['logDebug']:
+  numeric_level = getattr(logging, "DEBUG", None)
+else:
+  numeric_level = getattr(logging, "CRITICAL", None)
+
+logging.basicConfig(format='%(levelname)s:%(asctime)s:  %(message)s', level=numeric_level)
 
 def die(msg):
   sys.stderr.write('Error: ' + msg + '\n')
@@ -82,7 +88,12 @@ def match_bed_to_acc(args):
         NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     logging.info("Done analysing %s positions", NumMatSNPs)
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-  print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, "NA")
+  if args['outFile']:
+    print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, "NA")
+  else:
+    for i in range(len(GenotypeData.accessions)):
+      score = float(ScoreList[i])/NumInfoSites[i]
+      sys.stdout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs, DPmean))
 
 
 def match_vcf_to_acc(args):
@@ -135,7 +146,12 @@ def match_vcf_to_acc(args):
         NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     logging.info("Done analysing %s positions", NumMatSNPs)
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-  print_out_table(args['outFile'], GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, DPmean)
+  if args['outFile']:
+    print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, "NA")
+  else:
+    for i in range(len(GenotypeData.accessions)):
+      score = float(ScoreList[i])/NumInfoSites[i]
+      sys.stdout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs, DPmean))
 
   
 
