@@ -9,19 +9,15 @@ import pandas
 import argparse
 import logging
 import sys
-import os.path
+import os
 
 
-if args['logDebug']:
-  numeric_level = getattr(logging, "DEBUG", None)
-else:
-  numeric_level = getattr(logging, "CRITICAL", None)
-
-logging.basicConfig(format='%(levelname)s:%(asctime)s:  %(message)s', level=numeric_level)
-
-def die(msg):
-  sys.stderr.write('Error: ' + msg + '\n')
-  sys.exit(1)
+def setLog(args):
+  if args['logDebug']:
+    numeric_level = getattr(logging, "DEBUG", None)
+  else:
+    numeric_level = getattr(logging, "CRITICAL", None)
+  logging.basicConfig(format='%(levelname)s:%(asctime)s:  %(message)s', level=numeric_level)
 
 def likeliTest(n, y):
   p = 0.999999
@@ -52,6 +48,7 @@ def print_out_table(outFile, GenotypeData, ScoreList, NumInfoSites, LikeLiHoods,
   out.close()
 
 def match_bed_to_acc(args):
+  setLog(args)
   logging.info("Reading the position file")
   targetSNPs = pandas.read_table(args['inFile'], header=None, usecols=[0,1,2])
   snpCHR = np.array(targetSNPs[0], dtype=int)
@@ -97,6 +94,7 @@ def match_bed_to_acc(args):
 
 
 def match_vcf_to_acc(args):
+  setLog(args)
   logging.info("Reading the VCF file")
   vcf = vcfnp.variants(args['inFile'], cache=False).view(np.recarray)
   vcfD = vcfnp.calldata_2d(args['inFile'], cache=False).view(np.recarray)
