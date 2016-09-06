@@ -96,8 +96,14 @@ def match_bed_to_acc(args):
 def match_vcf_to_acc(args):
   setLog(args)
   logging.info("Reading the VCF file")
-  vcf = vcfnp.variants(args['inFile'], cache=False).view(np.recarray)
-  vcfD = vcfnp.calldata_2d(args['inFile'], cache=False).view(np.recarray)
+  if args['logDebug']:
+    vcf = vcfnp.variants(args['inFile'], cache=False).view(np.recarray)
+    vcfD = vcfnp.calldata_2d(args['inFile'], cache=False).view(np.recarray)
+  else:
+    sys.stderr = StringIO.StringIO()
+    vcf = vcfnp.variants(args['inFile'], cache=False).view(np.recarray)
+    vcfD = vcfnp.calldata_2d(args['inFile'], cache=False).view(np.recarray)
+    sys.stderr = sys.__stderr__
   DPthres = np.mean(vcf.DP[np.where(vcf.DP > 0)[0]]) * 4
   DPmean = DPthres/4
   snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres))[0]

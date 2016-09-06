@@ -10,15 +10,15 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='SNPmatch',
-    version='1.0',
+    version='1.2',
     description='A tool to get maximum likely accession in database',
     long_description=long_description,
-    url='https://github.com/rahbz/snpmatch',
+    url='https://github.com/Gregor-Mendel-Institute/snpmatch',
     author=['Rahul Pisupati'],
     author_email='rahul.bharadwaj.p@gmail.com',
     license='GMI',
     classifiers=[
-        'Development Status :: 1 - Production/Stable',
+        'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
         'Topic :: Scientific/Engineering :: Bio-Informatics',
         'Programming Language :: Python :: 3.4',
@@ -26,6 +26,7 @@ setup(
     keywords='Genotyping Low Coverage sequencing data',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=[
+        "scipy >= 0.17.0",
         "numpy >=1.6.1",
         "PyGWAS",
         "vcfnp",
