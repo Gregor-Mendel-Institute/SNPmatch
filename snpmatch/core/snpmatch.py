@@ -10,6 +10,7 @@ import argparse
 import logging
 import sys
 import os
+import StringIO
 
 
 def setLog(args):
