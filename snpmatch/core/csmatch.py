@@ -319,6 +319,8 @@ def genotypeCross(args):
         outfile.write("%s\t%s\t%s\t0.5\tNA\n" % (i+1, genP1no, len(genP1)))
     #outfile.write("%s\t%s\t%s\t%s\t%s\t%s\n" % (i+1, genP1no, len(genP1), float(genP1no)/len(genP1), pValP1, pValP2))
     #sys.stdout.write("%s\t%s\t%s\t%s\t%s\n" % (i+1, genP1no, len(genP1), float(genP1no)/len(genP1), pValP1))
+    else:
+      outfile.write("%s\t%s\t%s\tNA\tNA\n" % (i+1, genP1no, len(genP1)))
     if i % 10 == 0:
       logging.info("progress: %s windows", i)
   outfile.close()
