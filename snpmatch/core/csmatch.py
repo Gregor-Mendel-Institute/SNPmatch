@@ -313,6 +313,8 @@ def genotypeCross(args):
         outfile.write("%s\t%s\t%s\t0\t%s\n" % (i+1, genP1no, len(genP1), pValP1))
       elif pValP2 < 0.05:
         outfile.write("%s\t%s\t%s\t1\t%s\n" % (i+1, genP1no, len(genP1), pValP2))
+      elif float(genP1no)/len(genP1) >= 0.8 or float(genP1no)/len(genP1) <= 0.2:
+        outfile.write("%s\t%s\t%s\tNA\tNA\n" % (i+1, genP1no, len(genP1)))
       else:
         outfile.write("%s\t%s\t%s\t0.5\tNA\n" % (i+1, genP1no, len(genP1)))
     #outfile.write("%s\t%s\t%s\t%s\t%s\t%s\n" % (i+1, genP1no, len(genP1), float(genP1no)/len(genP1), pValP1, pValP2))
