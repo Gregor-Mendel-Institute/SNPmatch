@@ -158,8 +158,9 @@ def match_vcf_to_acc(args):
     vcfD = vcfnp.calldata_2d(args['inFile'], cache=False).view(np.recarray)
     sys.stderr = sys.__stderr__
   DPthres = np.mean(vcf.DP[np.where(vcf.DP > 0)[0]]) * 4
-  snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres))[0]
-  snpCHR = np.array(np.char.replace(vcf.CHROM[snpsREQ], "Chr", "")).astype("int8")
+  snpCHROM =  np.char.replace(vcf.CHROM, "Chr", "")
+  snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres) & (np.char.isdigit(snpCHROM)))[0]
+  snpCHR = np.array(snpCHROM[snpsREQ]).astype("int8")
   snpPOS = np.array(vcf.POS[snpsREQ])
   snpPL = vcfD.PL[snpsREQ, 0]
   snpWEI = np.copy(snpPL)

@@ -87,7 +87,7 @@ def match_bed_to_acc(args):
     logging.info("Done analysing %s positions", NumMatSNPs)
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
   if args['outFile']:
-    print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, "NA")
+    print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, DPmean, num_lines)
   else:
     for i in range(len(GenotypeData.accessions)):
       score = float(ScoreList[i])/NumInfoSites[i]
@@ -98,25 +98,29 @@ def match_vcf_to_acc(args):
   setLog(args)
   logging.info("Reading the VCF file")
   if args['logDebug']:
-    vcf = vcfnp.variants(args['inFile'], cache=False).view(np.recarray)
-    vcfD = vcfnp.calldata_2d(args['inFile'], cache=False).view(np.recarray)
+    vcf = vcfnp.variants(args['inFile'], cache=True).view(np.recarray)
+    vcfD = vcfnp.calldata_2d(args['inFile'], cache=True).view(np.recarray)
   else:
     sys.stderr = StringIO.StringIO()
-    vcf = vcfnp.variants(args['inFile'], cache=False).view(np.recarray)
-    vcfD = vcfnp.calldata_2d(args['inFile'], cache=False).view(np.recarray)
+    vcf = vcfnp.variants(args['inFile'], cache=True).view(np.recarray)
+    vcfD = vcfnp.calldata_2d(args['inFile'], cache=True).view(np.recarray)
     sys.stderr = sys.__stderr__
+  logging.info("done!")
   DPthres = np.mean(vcf.DP[np.where(vcf.DP > 0)[0]]) * 4
   DPmean = DPthres/4
-  snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres))[0]
-  snpCHR = np.array(np.char.replace(vcf.CHROM[snpsREQ], "Chr", "")).astype("int8")
+  snpCHROM =  np.char.replace(vcf.CHROM, "Chr", "")
+  snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres) & (np.char.isdigit(snpCHROM)))[0]
+  snpCHR = np.array(snpCHROM[snpsREQ]).astype("int8")
   snpPOS = np.array(vcf.POS[snpsREQ]) 
   snpPL = vcfD.PL[snpsREQ, 0]
   snpWEI = np.copy(snpPL)
   snpWEI = snpWEI.astype(float)
   snpWEI = snpWEI/(-10)
   snpWEI = np.exp(snpWEI)
+  logging.info("loading database files")
   GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
   GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
+  logging.info("done!")
   num_lines = len(GenotypeData.accessions)
   ScoreList = np.zeros(num_lines, dtype="float")
   NumInfoSites = np.zeros(len(GenotypeData.accessions), dtype="uint32")
@@ -152,7 +156,7 @@ def match_vcf_to_acc(args):
     logging.info("Done analysing %s positions", NumMatSNPs)
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
   if args['outFile']:
-    print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, "NA")
+    print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, LikeLiHoods, LikeLiHoodRatios, NumMatSNPs, DPmean)
   else:
     for i in range(len(GenotypeData.accessions)):
       score = float(ScoreList[i])/NumInfoSites[i]
