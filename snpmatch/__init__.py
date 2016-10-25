@@ -10,11 +10,25 @@ import argparse
 import sys
 from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
+import logging, logging.config
+
+
+def setLog(logDebug):
+  log = logging.getLogger()
+  if logDebug:
+    numeric_level = getattr(logging, "DEBUG", None)
+  else:
+    numeric_level = getattr(logging, "CRITICAL", None)
+  log_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+  lch = logging.StreamHandler()
+  lch.setLevel(numeric_level)
+  lch.setFormatter(log_format)
+  log.setLevel(numeric_level)
+  log.addHandler(lch)
 
 def die(msg):
   sys.stderr.write('Error: ' + msg + '\n')
   sys.exit(1)
-
 
 def get_options():
   inOptions = argparse.ArgumentParser()
@@ -75,7 +89,7 @@ def snpmatch_cross(args):
   checkARGs(args)
   if not args['inType']:
     die("not mentioned the type of input")
-  if not args['output']:
+  if not args['outFile']:
     die("specify an output file")
   if not args['scoreFile']:
     die("file to give out scores is not specified")
@@ -93,6 +107,7 @@ def genotype_cross(args):
 def main():
   parser = get_options()
   args = vars(parser.parse_args())
+  setLog(args['logDebug'])
   if 'func' not in args:
     parser.print_help()
     return 0
@@ -102,8 +117,8 @@ def main():
   except KeyboardInterrupt:
     return 0
   except Exception as e:
+    logging.exception(e)
     return 2
-
 
 if __name__=='__main__':
   sys.exit(main())
