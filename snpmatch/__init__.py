@@ -22,7 +22,7 @@ def setLog(logDebug):
   if logDebug:
     numeric_level = getattr(logging, "DEBUG", None)
   else:
-    numeric_level = getattr(logging, "CRITICAL", None)
+    numeric_level = getattr(logging, "ERROR", None)
   log_format = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
   lch = logging.StreamHandler()
   lch.setLevel(numeric_level)
