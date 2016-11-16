@@ -10,7 +10,7 @@ with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
 
 setup(
     name='SNPmatch',
-    version='1.4',
+    version='1.5.0',
     description='A tool to get maximum likely accession in database',
     long_description=long_description,
     url='https://github.com/Gregor-Mendel-Institute/snpmatch',
