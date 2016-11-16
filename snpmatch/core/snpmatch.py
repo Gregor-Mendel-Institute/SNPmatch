@@ -11,6 +11,7 @@ import logging
 import sys
 import os
 import StringIO
+import json
 
 log = logging.getLogger(__name__)
 lr_thres = 3.841
@@ -59,7 +60,7 @@ def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, LikeLiHood
   probScore = [float(ScoreList[i])/NumInfoSites[i] for i in range(num_lines)]
   topHitsDict = {'overlap': overlap, 'matches': [dict((AccList[i], (probScore[i], NumInfoSites[i])) for i in topHits)]}    
   with open(outFile, "w") as out_stats:
-    out_stats.write("%s" % topHitsDict)
+    out_stats.write(json.dumps(topHitsDict))
 
 def parseGT(snpGT):
   first = snpGT[0]
@@ -130,7 +131,7 @@ def parseInput(args):
   snpst = np.unique(snpCHR, return_counts=True)
   snpdict = dict((snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
   with open(args['outFile'] + ".stats.json", "w") as out_stats:
-    out_stats.write("%s" % snpdict)
+    out_stats.write(json.dumps(snpdict))
   log.info("writing output into file: %s", args['outFile'] + ".npz")
   np.savez(args['outFile'], chr = snpCHR, pos = snpPOS, wei = snpWEI, dp = DPmean)
   log.info("finished!")
