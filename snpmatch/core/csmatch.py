@@ -47,63 +47,19 @@ def writeBinData(outfile, i, GenotypeData, ScoreList, NumInfoSites):
         score = float(ScoreList[k])/NumInfoSites[k]
         outfile.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[k], int(ScoreList[k]), NumInfoSites[k], score, likeliScore[k], nextLikeli, len(NumAmb), i+1))
 
-def match_bed_to_acc(args):
-  log.info("Reading the position file")
-  targetSNPs = pandas.read_table(args['inFile'], header=None, usecols=[0,1,2])
-  snpCHR = np.array(targetSNPs[0], dtype=int)
-  snpPOS = np.array(targetSNPs[1], dtype=int)
-  snpGT = np.array(targetSNPs[2])
-  GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
-  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
-  num_lines = len(GenotypeData.accessions)
-  NumMatSNPs = 0
-  chunk_size = 1000
-  TotScoreList = np.zeros(num_lines, dtype="uint32")
-  TotNumInfoSites = np.zeros(num_lines, dtype="uint32")
-  (ChrBins, PosBins) = getBins(GenotypeData, args['binLen'])
-  outfile = open(args['outFile'], 'w')
-  for i in range(len(PosBins)):
-    start = np.sum(PosBins[0:i])
-    end = start + PosBins[i]
-    pos = GenotypeData.positions[start:end]
-    perchrTarPos = np.where(snpCHR == ChrBins[i])[0]
-    perchrtarSNPpos = snpPOS[perchrTarPos]
-    matchedAccInd = np.where(np.in1d(pos, perchrtarSNPpos))[0] + start
-    matchedTarInd = np.where(np.in1d(perchrtarSNPpos, pos))[0]
-    matchedTarGTs = snpGT[perchrTarPos[matchedTarInd],]
-    TarGTs = snpmatch.parseGT(matchedTarGTs)
-    NumMatSNPs = NumMatSNPs + len(matchedAccInd)
-    ScoreList = np.zeros(num_lines, dtype="uint32")
-    NumInfoSites = np.zeros(num_lines, dtype="uint32")
-    for j in range(0, len(matchedAccInd), chunk_size):
-      t1001SNPs = GenotypeData.snps[matchedAccInd[j:j+chunk_size],:]
-      samSNPs = np.reshape(np.repeat(TarGTs[j:j+chunk_size], num_lines), (len(TarGTs[j:j+chunk_size]),num_lines))
-      ScoreList = ScoreList + np.sum(t1001SNPs == samSNPs, axis=0)
-      if(len(TarGTs[j:j+chunk_size]) > 1):
-        NumInfoSites = NumInfoSites + len(TarGTs[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
-      elif(len(TarGTs[j:j+chunk_size]) == 1):
-        NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
-    TotScoreList = TotScoreList + ScoreList
-    TotNumInfoSites = TotNumInfoSites + NumInfoSites
-    writeBinData(outfile, i, GenotypeData, ScoreList, NumInfoSites)
-    if i % 50 == 0:
-      log.info("Done analysing %s positions", NumMatSNPs)
-  outfile.close()
-  log.info("writing score file!")
-  snpmatch.print_out_table(args['scoreFile'],GenotypeData, TotScoreList, TotNumInfoSites, NumMatSNPs, "NA")
+def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile, scoreFile):
+  NumSNPs = len(snpCHR)
+  log.info("loading database files")
+  GenotypeData = genotype.load_hdf5_genotype_data(hdf5File)
+  GenotypeData_acc = genotype.load_hdf5_genotype_data(hdf5accFile)
   log.info("done!")
-
-def match_vcf_to_acc(args):
-  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readVcf(args)
-  GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
-  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
   num_lines = len(GenotypeData.accessions)
   NumMatSNPs = 0
   chunk_size = 1000
   TotScoreList = np.zeros(num_lines, dtype="uint32")
   TotNumInfoSites = np.zeros(num_lines, dtype="uint32")
-  (ChrBins, PosBins) = getBins(GenotypeData, args['binLen'])
-  outfile = open(args['outFile'], 'w')
+  (ChrBins, PosBins) = getBins(GenotypeData, binLen)
+  outfile = open(outFile, 'w')
   for i in range(len(PosBins)):
     start = np.sum(PosBins[0:i])
     end = start + PosBins[i]
@@ -139,11 +95,26 @@ def match_vcf_to_acc(args):
       log.info("Done analysing %s positions", NumMatSNPs)
   outfile.close()
   log.info("writing score file!")
-  snpmatch.print_out_table(args['scoreFile'],GenotypeData, TotScoreList, TotNumInfoSites, NumMatSNPs, DPthres/4)
-  log.info("done!")
-  
+  snpmatch.print_out_table(scoreFile, GenotypeData.accessions, TotScoreList, TotNumInfoSites, NumMatSNPs, DPmean)
+  return (TotScoreList, TotNumInfoSites)
 
-def genotypeCross(args):
+def match_bed_to_acc(args):
+  log.info("loading bed file")
+  (snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readBED(args['inFile'], args['logDebug'])
+  log.info("done!")
+  log.info("running cross genotyper!")
+  (TotScoreList, TotNumInfoSites) = crossIdentifier(snpCHR, snpPOS, snpWEI, "NA", args['hdf5File'], args['hdf5accFile'], args['outFile'], args['scoreFile'])
+  log.info("finished!")
+
+def match_vcf_to_acc(args):
+  log.info("loading vcf file")
+  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readVcf(args['inFile'], args['logDebug'])
+  log.info("done!")
+  log.info("running cross genotyper")
+  (TotScoreList, TotNumInfoSites) = crossIdentifier(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'], args['scoreFile'])
+  log.info("finished!")
+
+def crossGenotyper(args):
   ## Get the VCF file (filtered may be) generated by GATK.
   # inputs:
   # 1) VCF file
@@ -151,7 +122,7 @@ def genotypeCross(args):
   # 3) SNP matrix (hdf5 file)
   # 4) Bin length, default as 200Kbp
   # 5) Chromosome length
-  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readVcf(args)
+  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readVcf(args['inFile'], args['logDebug'])
   parents = args['parents']
   ## need to filter the SNPs present in C and M 
   log.info("loading HDF5 file")
@@ -182,36 +153,74 @@ def genotypeCross(args):
     matchedAccInd = reqPOSind[np.where(np.in1d(reqPOS, perchrTarPos))[0]]
     matchedTarInd = perchrTarPosind[np.where(np.in1d(perchrTarPos, reqPOS))[0]]
     matchedTarGTs = snpGT[matchedTarInd]
-    TarGTs = snpmatch.parseGT(matchedTarGTs)
-    TarGTs[np.where(TarGTs == 2)[0]] = 4
-    genP1 = np.subtract(TarGTs, snpsP1[matchedAccInd])
-    genP1no = len(np.where(genP1 == 0)[0])
-    if len(genP1) > 0:
-      pValP1 = st.binom_test(genP1no, len(genP1), 0.8, alternative = "greater")
-      pValP2 = st.binom_test(len(genP1) - genP1no, len(genP1), 0.8, alternative = "greater")
-      if pValP1 < 0.05:
-        outfile.write("%s\t%s\t%s\t0\t%s\n" % (i+1, genP1no, len(genP1), pValP1))
-      elif pValP2 < 0.05:
-        outfile.write("%s\t%s\t%s\t1\t%s\n" % (i+1, genP1no, len(genP1), pValP2))
-      elif float(genP1no)/len(genP1) >= 0.8 or float(genP1no)/len(genP1) <= 0.2:
-        outfile.write("%s\t%s\t%s\tNA\tNA\n" % (i+1, genP1no, len(genP1)))
+    try:
+      TarGTs = snpmatch.parseGT(matchedTarGTs)
+      TarGTs[np.where(TarGTs == 2)[0]] = 4
+      genP1 = np.subtract(TarGTs, snpsP1[matchedAccInd])
+      genP1no = len(np.where(genP1 == 0)[0])
+      if len(genP1) > 0:
+        pValP1 = st.binom_test(genP1no, len(genP1), 0.8, alternative = "greater")
+        pValP2 = st.binom_test(len(genP1) - genP1no, len(genP1), 0.8, alternative = "greater")
+        if pValP1 < 0.05:
+          outfile.write("%s\t%s\t%s\t0\t%s\n" % (i+1, genP1no, len(genP1), pValP1))
+        elif pValP2 < 0.05:
+          outfile.write("%s\t%s\t%s\t1\t%s\n" % (i+1, genP1no, len(genP1), pValP2))
+        elif float(genP1no)/len(genP1) >= 0.8 or float(genP1no)/len(genP1) <= 0.2:
+          outfile.write("%s\t%s\t%s\tNA\tNA\n" % (i+1, genP1no, len(genP1)))
+        else:
+          outfile.write("%s\t%s\t%s\t0.5\tNA\n" % (i+1, genP1no, len(genP1)))
       else:
-        outfile.write("%s\t%s\t%s\t0.5\tNA\n" % (i+1, genP1no, len(genP1)))
-    #outfile.write("%s\t%s\t%s\t%s\t%s\t%s\n" % (i+1, genP1no, len(genP1), float(genP1no)/len(genP1), pValP1, pValP2))
-    #sys.stdout.write("%s\t%s\t%s\t%s\t%s\n" % (i+1, genP1no, len(genP1), float(genP1no)/len(genP1), pValP1))
-    else:
-      outfile.write("%s\t%s\t%s\tNA\tNA\n" % (i+1, genP1no, len(genP1)))
+        outfile.write("%s\t%s\t%s\tNA\tNA\n" % (i+1, genP1no, len(genP1)))
+    except:
+      outfile.write("%s\tNA\tNA\tNA\tNA\n" % (i+1))
     if i % 10 == 0:
-      log.info("progress: %s windows", i)
+      log.info("progress: %s windows", i+10)
+  log.info("done!")
   outfile.close()
 
-
-
-def genotypef1():
-  ## 
+def crossF1genotyper(args):
   ## Get tophit accessions
   # sorting based on the final scores
-  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readVcf(args)
-  
+  log.info("reading input files!")
+  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readVcf(args['inFile'], args['logDebug'])
+  GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
+  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
+  log.info('done!')
+  log.info("running genotyper!")
+  (ScoreList, NumInfoSites) = snpmatch.genotyper(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])  
+  (LikeLiHoods, LikeLiHoodRatios) = snpmatch.calculate_likelihoods(ScoreList, NumInfoSites)
+  log.info("simulating F1s for top 10 accessions")
+  Accessions = numpy.copy(GenotypeData.accessions)
+  TopHitAccs = numpy.argsort(LikeLiHoodRatios)[0:10]
+  for i in range(len(TopHitAccs)):
+    for j in range(i+1, len(TopHitAccs)):
+      p1 = GenotypeData_acc.snps[:,TopHitAccs[i]]
+      p2 = GenotypeData_acc.snps[:,TopHitAccs[j]]
+      score = 0
+      numinfo = 0
+      NumMatSNPs = 0
+      for c in np.array(GenotypeData.chrs, dtype=int):
+        perchrTarPos = np.where(snpCHR == c)[0]
+        perchrtarSNPpos = snpPOS[perchrTarPos]
+        start = GenotypeData.chr_regions[c-1][0]
+        end = GenotypeData.chr_regions[c-1][1]
+        chrpositions = GenotypeData.positions[start:end]
+        matchedAccInd = np.where(np.in1d(chrpositions, perchrtarSNPpos))[0] + start
+        matchedTarInd = np.where(np.in1d(perchrtarSNPpos, chrpositions))[0]
+        NumMatSNPs = NumMatSNPs + len(matchedTarInd)
+        gtp1 = p1[matchedAccInd]
+        gtp2 = p2[matchedAccInd]
+        matchedTarWEI = snpWEI[matchedTarInd,]
+        homalt = numpy.where((gtp1 == 1) & (gtp2 == 1))[0]
+        homref = numpy.where((gtp1 == 0) & (gtp2 == 0))[0]
+        het = numpy.where((gtp1 != -1) & (gtp2 != -1) & (gtp1 != gtp2))[0]
+        score = score + numpy.sum(matchedTarWEI[homalt, 2]) + numpy.sum(matchedTarWEI[homref, 0]) + numpy.sum(matchedTarWEI[het, 1])
+        numinfo = numinfo + len(homalt) + len(homref) + len(het) 
+      ScoreList = numpy.append(ScoreList, score)
+      NumInfoSites = numpy.append(NumInfoSites, numinfo)
+      acc = GenotypeData.accessions[TopHitAccs[i]] + "x" + GenotypeData.accessions[TopHitAccs[j]]
+      Accessions = numpy.append(Accessions, acc)
+  log.info("writing output!")
+  snpmatch.print_out_table(args['outFile'], Accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
+  log.info("finished!")
 
-  return 0

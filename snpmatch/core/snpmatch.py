@@ -13,13 +13,14 @@ import os
 import StringIO
 
 log = logging.getLogger(__name__)
+lr_thres = 3.841
 
 def die(msg):
   sys.stderr.write('Error: ' + msg + '\n')
   sys.exit(1)
 
 def likeliTest(n, y):
-  p = 0.999999
+  p = 0.99999999
   if n > 0 and n != y:
     pS = float(y)/n
     a = y * np.log(pS/p)
@@ -39,13 +40,26 @@ def calculate_likelihoods(ScoreList, NumInfoSites):
   LikeLiHoodRatios = np.array(LikeLiHoodRatios).astype("float")
   return (LikeLiHoods, LikeLiHoodRatios)
 
-def print_out_table(outFile, GenotypeData, ScoreList, NumInfoSites, NumMatSNPs, DPmean):
+def print_out_table(outFile, AccList, ScoreList, NumInfoSites, NumMatSNPs, DPmean):
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-  out = open(outFile, 'w')
-  for i in range(len(GenotypeData.accessions)):
-    score = float(ScoreList[i])/NumInfoSites[i]
-    out.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs, DPmean))
-  out.close()
+  if outFile:
+    out = open(outFile, 'w')
+    for i in range(len(AccList)):
+      score = float(ScoreList[i])/NumInfoSites[i]
+      out.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (AccList[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs, DPmean))
+    out.close()
+  else:
+    for i in range(len(AccList)):
+      score = float(ScoreList[i])/NumInfoSites[i]
+      sys.stdout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (AccList[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs, DPmean))
+
+def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, LikeLiHoodRatios):
+  num_lines = len(ScoreList)
+  topHits = np.where(LikeLiHoodRatios < lr_thres)[0]
+  probScore = [float(ScoreList[i])/NumInfoSites[i] for i in range(num_lines)]
+  topHitsDict = {'overlap': overlap, 'matches': [dict((AccList[i], (probScore[i], NumInfoSites[i])) for i in topHits)]}    
+  with open(outFile, "w") as out_stats:
+    out_stats.write("%s" % topHitsDict)
 
 def parseGT(snpGT):
   first = snpGT[0]
@@ -59,18 +73,31 @@ def parseGT(snpGT):
     snpBinary[np.where(snpGT == "1/1")[0]] = 1
     snpBinary[np.where(snpGT == "0/1")[0]] = 2
   return snpBinary
-
-def readVcf(args):
-  log.info("Reading the VCF file")
-  if args['logDebug']:
-    vcf = vcfnp.variants(args['inFile'], cache=True).view(np.recarray)
-    vcfD = vcfnp.calldata_2d(args['inFile'], cache=True).view(np.recarray)
+  
+def readBED(inFile, logDebug):
+  log.info("Reading the position file")
+  targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
+  snpCHR = np.array(targetSNPs[0])
+  snpPOS = np.array(targetSNPs[1], dtype=int)
+  snpGT = np.array(targetSNPs[2])
+  snpBinary = parseGT(snpGT)
+  snpWEI = np.ones((len(snpCHR), 3))  ## for homo and het
+  snpWEI[np.where(snpBinary != 0),0] = 0
+  snpWEI[np.where(snpBinary != 1),2] = 0
+  snpWEI[np.where(snpBinary != 2),1] = 0
+  return (snpCHR, snpPOS, snpGT, snpWEI)
+  
+def readVcf(inFile, logDebug):
+  log.info("reading the VCF file")
+  if logDebug:
+    vcf = vcfnp.variants(inFile, cache=False).view(np.recarray)
+    vcfD = vcfnp.calldata_2d(inFile, cache=False).view(np.recarray)
   else:
     sys.stderr = StringIO.StringIO()
-    vcf = vcfnp.variants(args['inFile'], cache=True).view(np.recarray)
-    vcfD = vcfnp.calldata_2d(args['inFile'], cache=True).view(np.recarray)
-    sys.stderr = sys.__stderr__ 
-  DPthres = np.mean(vcf.DP[np.where(vcf.DP > 0)[0]]) * 4
+    vcf = vcfnp.variants(inFile, cache=False).view(np.recarray)
+    vcfD = vcfnp.calldata_2d(inFile, cache=False).view(np.recarray)
+    sys.stderr = sys.__stderr__
+  DPthres = np.mean(vcfD.DP[np.where(vcfD.DP > 0)[0]]) * 4
   DPmean = DPthres / 4
   snpCHROM =  np.char.replace(vcf.CHROM, "Chr", "")
   snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres) & (np.char.isdigit(snpCHROM)))[0]
@@ -91,57 +118,29 @@ def readVcf(args):
     snpWEI[np.where(snpBinary != 2),1] = 0
   return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
 
-
-def match_bed_to_acc(args):
-  log.info("Reading the position file")
-  targetSNPs = pandas.read_table(args['inFile'], header=None, usecols=[0,1,2])
-  snpCHR = np.array(targetSNPs[0])
-  snpPOS = np.array(targetSNPs[1], dtype=int)
-  snpGT = np.array(targetSNPs[2])
-  GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
-  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
-  num_lines = len(GenotypeData.accessions)
-  ScoreList = np.zeros(num_lines, dtype="float")
-  NumInfoSites = np.zeros(len(GenotypeData.accessions), dtype="uint32")
-  NumMatSNPs = 0
-  chunk_size = 1000
-  for i in np.array(GenotypeData.chrs, dtype=int):
-    perchrTarPos = np.where(snpCHR == i)[0]
-    perchrtarSNPpos = snpPOS[perchrTarPos]
-    log.info("Loaded %s chromosome positions from the position file", i)
-    start = GenotypeData.chr_regions[i-1][0]
-    end = GenotypeData.chr_regions[i-1][1]
-    chrpositions = GenotypeData.positions[start:end]
-    matchedAccInd = np.where(np.in1d(chrpositions, perchrtarSNPpos))[0] + start
-    matchedTarInd = np.where(np.in1d(perchrtarSNPpos, chrpositions))[0]
-    matchedTarGTs = snpGT[perchrTarPos[matchedTarInd],]
-    TarGTs = parseGT(matchedTarGTs)
-    NumMatSNPs = NumMatSNPs + len(matchedAccInd)
-    for j in range(0, len(matchedAccInd), chunk_size):
-      t1001SNPs = GenotypeData.snps[matchedAccInd[j:j+chunk_size],:]
-      samSNPs = np.reshape(np.repeat(TarGTs[j:j+chunk_size], num_lines), (len(TarGTs[j:j+chunk_size]),num_lines))
-      ScoreList = ScoreList + np.sum(t1001SNPs == samSNPs, axis=0) 
-      if(len(TarGTs[j:j+chunk_size]) > 1):
-        NumInfoSites = NumInfoSites + len(TarGTs[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
-      elif(len(TarGTs[j:j+chunk_size]) == 1):
-        NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
-    log.info("Done analysing %s positions", NumMatSNPs)
-  log.info("writing score file")
-  if args['outFile']:
-    print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, NumMatSNPs, "NA")
+def parseInput(args):
+  _,inType = os.path.splitext(args['inFile'])
+  if inType == '.vcf':
+    (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(args['inFile'], args['logDebug'])
+  elif inType == '.bed':
+    (snpCHR, snpPOS, snpGT, snpWEI) = readBED(args['inFile'], args['logDebug'])
+    DPmean = "NA"
   else:
-    (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-    for i in range(len(GenotypeData.accessions)):
-      score = float(ScoreList[i])/NumInfoSites[i]
-      sys.stdout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\tNA\n" % (GenotypeData.accessions[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs))
-  log.info("done!")
-
-
-def match_vcf_to_acc(args):
-  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(args)
+    print inType
+    die("file extension not valid!")
+  snpst = np.unique(snpCHR, return_counts=True)
+  snpdict = dict((snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
+  with open(args['outFile'] + ".stats.json", "w") as out_stats:
+    out_stats.write("%s" % snpdict)
+  log.info("writing output into file: %s", args['outFile'] + ".npz")
+  np.savez(args['outFile'], chr = snpCHR, pos = snpPOS, wei = snpWEI, dp = DPmean)
+  log.info("finished!")
+ 
+def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
+  NumSNPs = len(snpCHR)
   log.info("loading database files")
-  GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
-  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
+  GenotypeData = genotype.load_hdf5_genotype_data(hdf5File)
+  GenotypeData_acc = genotype.load_hdf5_genotype_data(hdf5accFile)
   log.info("done!")
   num_lines = len(GenotypeData.accessions)
   ScoreList = np.zeros(num_lines, dtype="float")
@@ -177,12 +176,29 @@ def match_vcf_to_acc(args):
         NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     log.info("Done analysing %s positions", NumMatSNPs)
   log.info("writing score file!")
-  if args['outFile']:
-    print_out_table(args['outFile'],GenotypeData, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
-  else:
-    (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-    for i in range(len(GenotypeData.accessions)):
-      score = float(ScoreList[i])/NumInfoSites[i]
-      sys.stdout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs, DPmean))
-  log.info("done!")
+  overlap = float(NumMatSNPs)/NumSNPs
+  (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
+  print_out_table(outFile,GenotypeData.accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
+  if not outFile:
+    outFile = "genotyper"
+  print_topHits(outFile + ".matches.json", GenotypeData.accessions, ScoreList, NumInfoSites, overlap, LikeLiHoodRatios)
+  return (ScoreList, NumInfoSites)
 
+def potatoGenotyper(args):
+  log.info("loading file generated by SNPmatch parser")
+  snps = np.load(args['inFile'])
+  log.info("running genotyper!")
+  (ScoreList, NumInfoSites) = genotyper(snps['chr'], snps['pos'], snps['wei'], snps['dp'], args['hdf5File'], args['hdf5accFile'], args['outFile'])
+  log.info("finished!")
+
+def match_bed_to_acc(args):
+  (snpCHR, snpPOS, snpGT, snpWEI) = readBED(args['inFile'], args['logDebug'])
+  log.info("running genotyper!")
+  (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpWEI, "NA", args['hdf5File'], args['hdf5accFile'], args['outFile'])
+  log.info("finished!")
+
+def match_vcf_to_acc(args):
+  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(args['inFile'], args['logDebug'])
+  log.info("running genotyper!")
+  (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])
+  log.info("finished!")
