@@ -129,7 +129,7 @@ def parseInput(args):
   else:
     die("file extension not valid!")
   snpst = np.unique(snpCHR, return_counts=True)
-  snpdict = dict((snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
+  snpdict = dict(('Chr%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
   with open(args['outFile'] + ".stats.json", "w") as out_stats:
     out_stats.write(json.dumps(snpdict))
   log.info("writing output into file: %s", args['outFile'] + ".npz")
