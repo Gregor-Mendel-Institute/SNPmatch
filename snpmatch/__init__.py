@@ -66,7 +66,7 @@ def get_options(program_license,program_version_message):
   parser = subparsers.add_parser('parser', help="parse the input file")
   parser.add_argument("-i", "--input_file", dest="inFile", help="VCF/BED file for the variants in the sample")
   parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
-  parser.add_argument("-o", "--output", dest="outFile", help="output .npy.npz file required for SNPmatch")
+  parser.add_argument("-o", "--output", dest="outFile", help="output + .npz file is generater required for SNPmatch")
   parser.set_defaults(func=snpmatch_parser)
   genotyper = subparsers.add_parser('genotyper', help="SNPmatch genotyper for inbred samples")
   genotyper.add_argument("-i", "--input_file", dest="inFile", help="input file from parser -- .npz")
@@ -98,27 +98,31 @@ def snpmatch_inbred(args):
     snpmatch.match_vcf_to_acc(args)
   elif inType == '.bed':
     snpmatch.match_bed_to_acc(args)
+  else:
+    die("input file type %s not supported", inType)
 
 def snpmatch_cross(args):
   checkARGs(args)
   _,inType = os.path.splitext(args['inFile'])
   if args['crossf1']:
     csmatch.crossF1genotyper(args)
-  if not args['outFile']:
-    die("specify an output file")
-  if not args['scoreFile']:
-    die("file to give out scores is not specified")
-  if inType == '.vcf':
-    csmatch.match_vcf_to_acc(args)
-  elif inType == 'bed':
-    csmatch.match_bed_to_acc(args)
-    
+  else:
+    if not args['outFile']:
+      die("specify an output file")
+    if not args['scoreFile']:
+      die("file to give out scores is not specified")
+    if inType == '.vcf':
+      csmatch.match_vcf_to_acc(args)
+    elif inType == '.bed':
+      csmatch.match_bed_to_acc(args)
+    else:
+      die("input file type %s not supported", inType)
+
 def snpmatch_parser(args):
   if not args['inFile']:
     die("input file not specified")
   if not args['outFile']:
     args['outFile'] = args['inFile']
-    #die("specify an output file")
   snpmatch.parseInput(args)
 
 def snpmatch_genotyper(args):

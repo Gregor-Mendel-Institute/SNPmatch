@@ -103,7 +103,7 @@ def match_bed_to_acc(args):
   (snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readBED(args['inFile'], args['logDebug'])
   log.info("done!")
   log.info("running cross genotyper!")
-  (TotScoreList, TotNumInfoSites) = crossIdentifier(snpCHR, snpPOS, snpWEI, "NA", args['hdf5File'], args['hdf5accFile'], args['outFile'], args['scoreFile'])
+  (TotScoreList, TotNumInfoSites) = crossIdentifier(args['binLen'], snpCHR, snpPOS, snpWEI, "NA", args['hdf5File'], args['hdf5accFile'], args['outFile'], args['scoreFile'])
   log.info("finished!")
 
 def match_vcf_to_acc(args):
@@ -111,7 +111,7 @@ def match_vcf_to_acc(args):
   (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readVcf(args['inFile'], args['logDebug'])
   log.info("done!")
   log.info("running cross genotyper")
-  (TotScoreList, TotNumInfoSites) = crossIdentifier(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'], args['scoreFile'])
+  (TotScoreList, TotNumInfoSites) = crossIdentifier(args['binLen'],snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'], args['scoreFile'])
   log.info("finished!")
 
 def crossGenotyper(args):
@@ -182,7 +182,13 @@ def crossF1genotyper(args):
   ## Get tophit accessions
   # sorting based on the final scores
   log.info("reading input files!")
-  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readVcf(args['inFile'], args['logDebug'])
+  _,inType = os.path.splitext(args['inFile'])
+  if inType == '.vcf':
+    (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readVcf(args['inFile'], args['logDebug'])
+  elif inType == '.bed':
+    (snpCHR, snpPOS, snpGT, snpWEI) = snpmatch.readBED(args['inFile'], args['logDebug'])
+  else:
+    die("file extension not valid!")
   GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
   GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
   log.info('done!')

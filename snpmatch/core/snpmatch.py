@@ -126,7 +126,6 @@ def parseInput(args):
     (snpCHR, snpPOS, snpGT, snpWEI) = readBED(args['inFile'], args['logDebug'])
     DPmean = "NA"
   else:
-    print inType
     die("file extension not valid!")
   snpst = np.unique(snpCHR, return_counts=True)
   snpdict = dict((snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
