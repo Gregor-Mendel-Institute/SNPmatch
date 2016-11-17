@@ -54,11 +54,38 @@ def print_out_table(outFile, AccList, ScoreList, NumInfoSites, NumMatSNPs, DPmea
       score = float(ScoreList[i])/NumInfoSites[i]
       sys.stdout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (AccList[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs, DPmean))
 
-def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, LikeLiHoodRatios):
+def CaseInterpreter(overlap, NumSNPs, topHits, probScore):
+  snp_thres = 5000
+  prob_thres = 0.98
+  overlap_thres = 0.5
+  num_lines = len(probScore)
+  if NumSNPs > snp_thres:
+    if len(topHits) == 1:
+      case = 0
+      note = "Perfect hit!"
+    elif np.nanmean(probScore[topHits]) > prob_thres:
+      case = 2
+      note = "An ambiguous sample: Accessions in top hits can be really close"
+    elif overlap > overlap_thres:
+      case = 3
+      note = "An ambiguous sample: Sample might contain DNA contamination or have DNA mixture"
+    elif overlap < overlap_thres:
+      case = 4
+      note = "An ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
+  else:
+    case = 1
+    note = "number of SNPs are very few!"
+  return (case, note)  
+
+def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumSNPs):
   num_lines = len(ScoreList)
+  (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
   topHits = np.where(LikeLiHoodRatios < lr_thres)[0]
   probScore = [float(ScoreList[i])/NumInfoSites[i] for i in range(num_lines)]
-  topHitsDict = {'overlap': overlap, 'matches': [dict((AccList[i], (probScore[i], NumInfoSites[i])) for i in topHits)]}    
+  probScore = np.array(probScore, dtype = float)
+  (case, note) = CaseInterpreter(overlap, NumSNPs, topHits, probScore)
+  matches_dict = [dict((AccList[i], (probScore[i], NumInfoSites[i])) for i in topHits)]
+  topHitsDict = {'overlap': overlap, 'matches': matches_dict, 'case': case, 'interpretation': note}    
   with open(outFile, "w") as out_stats:
     out_stats.write(json.dumps(topHitsDict))
 
@@ -150,7 +177,7 @@ def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
   for i in np.array(GenotypeData.chrs, dtype=int):
     perchrTarPos = np.where(snpCHR == i)[0]
     perchrtarSNPpos = snpPOS[perchrTarPos]
-    log.info("Loaded %s chromosome positions from the position file", i)
+    log.info("Analysing chromosome %s positions", i)
     start = GenotypeData.chr_regions[i-1][0]
     end = GenotypeData.chr_regions[i-1][1]
     chrpositions = GenotypeData.positions[start:end]
@@ -177,11 +204,10 @@ def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
     log.info("Done analysing %s positions", NumMatSNPs)
   log.info("writing score file!")
   overlap = float(NumMatSNPs)/NumSNPs
-  (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
   print_out_table(outFile,GenotypeData.accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
   if not outFile:
     outFile = "genotyper"
-  print_topHits(outFile + ".matches.json", GenotypeData.accessions, ScoreList, NumInfoSites, overlap, LikeLiHoodRatios)
+  print_topHits(outFile + ".matches.json", GenotypeData.accessions, ScoreList, NumInfoSites, overlap, NumSNPs)
   return (ScoreList, NumInfoSites)
 
 def potatoGenotyper(args):
@@ -202,3 +228,4 @@ def match_vcf_to_acc(args):
   log.info("running genotyper!")
   (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])
   log.info("finished!")
+  
