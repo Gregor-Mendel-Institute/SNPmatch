@@ -85,7 +85,7 @@ def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumSNPs):
   probScore = np.array(probScore, dtype = float)
   (case, note) = CaseInterpreter(overlap, NumSNPs, topHits, probScore)
   matches_dict = [dict((AccList[i], (probScore[i], NumInfoSites[i])) for i in topHits)]
-  topHitsDict = {'overlap': overlap, 'matches': matches_dict, 'case': case, 'interpretation': note}    
+  topHitsDict = {'overlap': overlap, 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}    
   with open(outFile, "w") as out_stats:
     out_stats.write(json.dumps(topHitsDict))
 
@@ -104,10 +104,12 @@ def parseGT(snpGT):
   
 def readBED(inFile, logDebug):
   log.info("Reading the position file")
-  targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
-  snpCHR = np.array(targetSNPs[0])
-  snpPOS = np.array(targetSNPs[1], dtype=int)
-  snpGT = np.array(targetSNPs[2])
+  targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2]) 
+  snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetSNPs[0])), "chr", "")
+  snpREQ = np.where(np.char.isdigit(snpCHROM))[0]
+  snpCHR = snpCHROM[snpREQ]
+  snpPOS = np.array(targetSNPs[1], dtype=int)[snpREQ]
+  snpGT = np.array(targetSNPs[2])[snpREQ]
   snpBinary = parseGT(snpGT)
   snpWEI = np.ones((len(snpCHR), 3))  ## for homo and het
   snpWEI[np.where(snpBinary != 0),0] = 0
@@ -127,7 +129,7 @@ def readVcf(inFile, logDebug):
     sys.stderr = sys.__stderr__
   DPthres = np.mean(vcfD.DP[np.where(vcfD.DP > 0)[0]]) * 4
   DPmean = DPthres / 4
-  snpCHROM =  np.char.replace(vcf.CHROM, "Chr", "")
+  snpCHROM =  np.char.replace(np.core.defchararray.lower(vcf.CHROM), "chr", "")  ## Should take care of all possible chr names
   snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres) & (np.char.isdigit(snpCHROM)))[0]
   snpCHR = np.array(snpCHROM[snpsREQ]).astype("int8")
   snpPOS = np.array(vcf.POS[snpsREQ])

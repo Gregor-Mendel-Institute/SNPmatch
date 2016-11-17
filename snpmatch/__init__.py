@@ -13,8 +13,8 @@ from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
 import logging, logging.config
 
-__version__ = '1.5.0'
-__updated__ = "16.11.2016"
+__version__ = '1.5.1'
+__updated__ = "17.11.2016"
 __date__ = "25.10.2016"
 
 def setLog(logDebug):
