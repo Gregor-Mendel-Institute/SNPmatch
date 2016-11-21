@@ -15,6 +15,7 @@ import json
 
 log = logging.getLogger(__name__)
 lr_thres = 3.841
+snp_thres = 5000
 
 def die(msg):
   sys.stderr.write('Error: ' + msg + '\n')
@@ -55,7 +56,6 @@ def print_out_table(outFile, AccList, ScoreList, NumInfoSites, NumMatSNPs, DPmea
       sys.stdout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (AccList[i], int(ScoreList[i]), NumInfoSites[i], score, LikeLiHoods[i], LikeLiHoodRatios[i], NumMatSNPs, DPmean))
 
 def CaseInterpreter(overlap, NumSNPs, topHits, probScore):
-  snp_thres = 5000
   prob_thres = 0.98
   overlap_thres = 0.5
   num_lines = len(probScore)
@@ -74,18 +74,19 @@ def CaseInterpreter(overlap, NumSNPs, topHits, probScore):
       note = "An ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
   else:
     case = 1
-    note = "number of SNPs are very few!"
+    note = "An ambiguous sample: Very few number of SNPs!"
   return (case, note)  
 
-def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumSNPs):
+def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs):
   num_lines = len(ScoreList)
   (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
   topHits = np.where(LikeLiHoodRatios < lr_thres)[0]
   probScore = [float(ScoreList[i])/NumInfoSites[i] for i in range(num_lines)]
+  overlapScore = [float(NumInfoSites[i])/NumMatSNPs for i in range(num_lines)]
   probScore = np.array(probScore, dtype = float)
-  (case, note) = CaseInterpreter(overlap, NumSNPs, topHits, probScore)
-  matches_dict = [dict((AccList[i], (probScore[i], NumInfoSites[i])) for i in topHits)]
-  topHitsDict = {'overlap': overlap, 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}    
+  (case, note) = CaseInterpreter(overlap, NumMatSNPs, topHits, probScore)
+  matches_dict = [dict((AccList[i], (probScore[i], NumInfoSites[i], overlapScore[i])) for i in topHits)]
+  topHitsDict = {'overlap': [overlap, NumMatSNPs], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}    
   with open(outFile, "w") as out_stats:
     out_stats.write(json.dumps(topHitsDict))
 
@@ -103,7 +104,7 @@ def parseGT(snpGT):
   return snpBinary
   
 def readBED(inFile, logDebug):
-  log.info("Reading the position file")
+  log.info("reading the position file")
   targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2]) 
   snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetSNPs[0])), "chr", "")
   snpREQ = np.where(np.char.isdigit(snpCHROM))[0]
@@ -148,22 +149,43 @@ def readVcf(inFile, logDebug):
     snpWEI[np.where(snpBinary != 2),1] = 0
   return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
 
-def parseInput(args):
-  _,inType = os.path.splitext(args['inFile'])
-  if inType == '.vcf':
-    (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(args['inFile'], args['logDebug'])
-  elif inType == '.bed':
-    (snpCHR, snpPOS, snpGT, snpWEI) = readBED(args['inFile'], args['logDebug'])
-    DPmean = "NA"
+def parseInput(inFile, logDebug, outFile = "parser"):
+  if outFile == "parser":
+    outFile = inFile + ".snpmatch"
+  if os.path.isfile(inFile + ".snpmatch.npz"):
+    log.info("snpmatch parser dump found! loading %s", inFile + ".snpmatch.npz")
+    snps = np.load(inFile + ".snpmatch.npz")
+    (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
   else:
-    die("file extension not valid!")
-  snpst = np.unique(snpCHR, return_counts=True)
-  snpdict = dict(('Chr%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
-  with open(args['outFile'] + ".stats.json", "w") as out_stats:
-    out_stats.write(json.dumps(snpdict))
-  log.info("writing output into file: %s", args['outFile'] + ".npz")
-  np.savez(args['outFile'], chr = snpCHR, pos = snpPOS, wei = snpWEI, dp = DPmean)
-  log.info("finished!")
+    _,inType = os.path.splitext(inFile)
+    if inType == '.npz':
+      log.info("loading snpmatch parser file! %s", inFile)
+      snps = np.load(inFile)
+      (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
+    else:
+      log.info("creating snpmatch parser dump %s", inFile + ".snpmatch.npz")
+      if inType == '.vcf':
+        (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(inFile, logDebug)
+      elif inType == '.bed':
+        (snpCHR, snpPOS, snpGT, snpWEI) = readBED(inFile, logDebug)
+        DPmean = "NA"      
+      else:
+        die("input file type %s not supported", inType)
+      log.info("writing snpmatch parser dump file: %s", outFile + ".npz")
+      np.savez(outFile, chr = snpCHR, pos = snpPOS, gt = snpGT, wei = snpWEI, dp = DPmean)
+      NumSNPs = len(snpCHR)
+      case = 0
+      note = "Sufficient number of SNPs"
+      if NumSNPs < snp_thres:
+        note = "Attention: low number of SNPs provided"
+        case = 1
+      snpst = np.unique(snpCHR, return_counts=True)
+      snpdict = dict(('Chr%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
+      statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": DPmean}
+      with open(outFile + ".stats.json", "w") as out_stats:
+        out_stats.write(json.dumps(statdict))
+  log.info("done!")
+  return (snpCHR, snpPOS, snpGT, snpWEI, DPmean)
  
 def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
   NumSNPs = len(snpCHR)
@@ -209,7 +231,7 @@ def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
   print_out_table(outFile,GenotypeData.accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
   if not outFile:
     outFile = "genotyper"
-  print_topHits(outFile + ".matches.json", GenotypeData.accessions, ScoreList, NumInfoSites, overlap, NumSNPs)
+  print_topHits(outFile + ".matches.json", GenotypeData.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs)
   return (ScoreList, NumInfoSites)
 
 def potatoGenotyper(args):
@@ -219,15 +241,12 @@ def potatoGenotyper(args):
   (ScoreList, NumInfoSites) = genotyper(snps['chr'], snps['pos'], snps['wei'], snps['dp'], args['hdf5File'], args['hdf5accFile'], args['outFile'])
   log.info("finished!")
 
-def match_bed_to_acc(args):
-  (snpCHR, snpPOS, snpGT, snpWEI) = readBED(args['inFile'], args['logDebug'])
-  log.info("running genotyper!")
-  (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpWEI, "NA", args['hdf5File'], args['hdf5accFile'], args['outFile'])
-  log.info("finished!")
-
-def match_vcf_to_acc(args):
-  (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(args['inFile'], args['logDebug'])
+def potatoCompareSNPs(args):
+  (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
   log.info("running genotyper!")
   (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])
   log.info("finished!")
-  
+
+
+
+

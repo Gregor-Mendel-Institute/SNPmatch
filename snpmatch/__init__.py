@@ -1,7 +1,7 @@
 """
-    snpmatch
+    SNPmatch
     ~~~~~~~~~~~~~
-    The main module for running snpmatch
+    The main module for running SNPmatch
     :copyright: year by my name, see AUTHORS for more details
     :license: license_name, see LICENSE for more details
 """
@@ -38,14 +38,14 @@ def get_options(program_license,program_version_message):
   inOptions = argparse.ArgumentParser(description=program_license)
   inOptions.add_argument('-V', '--version', action='version', version=program_version_message)
   subparsers = inOptions.add_subparsers(title='subcommands',description='Choose a command to run',help='Following commands are supported')
-  inbred_parser = subparsers.add_parser('inbred', help="snpmatch on the inbred samples")
+  inbred_parser = subparsers.add_parser('inbred', help="SNPmatch on the inbred samples")
   inbred_parser.add_argument("-i", "--input_file", dest="inFile", help="VCF/BED file for the variants in the sample")
   inbred_parser.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   inbred_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
   inbred_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   inbred_parser.add_argument("-o", "--output", dest="outFile", help="Output file with the probability scores")
   inbred_parser.set_defaults(func=snpmatch_inbred)
-  cross_parser = subparsers.add_parser('cross', help="snpmatch on the crosses (F2s and F3s) of A. thaliana")
+  cross_parser = subparsers.add_parser('cross', help="SNPmatch on the crosses (F2s and F3s) of A. thaliana")
   cross_parser.add_argument("-i", "--input_file", dest="inFile", help="VCF/BED file for the variants in the sample")
   cross_parser.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   cross_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
@@ -93,37 +93,18 @@ def checkARGs(args):
 
 def snpmatch_inbred(args):
   checkARGs(args)
-  _,inType = os.path.splitext(args['inFile'])
-  if inType == '.vcf':
-    snpmatch.match_vcf_to_acc(args)
-  elif inType == '.bed':
-    snpmatch.match_bed_to_acc(args)
-  else:
-    die("input file type %s not supported", inType)
+  snpmatch.potatoCompareSNPs(args)
 
 def snpmatch_cross(args):
   checkARGs(args)
-  _,inType = os.path.splitext(args['inFile'])
-  if args['crossf1']:
-    csmatch.crossF1genotyper(args)
-  else:
-    if not args['outFile']:
-      die("specify an output file")
-    if not args['scoreFile']:
-      die("file to give out scores is not specified")
-    if inType == '.vcf':
-      csmatch.match_vcf_to_acc(args)
-    elif inType == '.bed':
-      csmatch.match_bed_to_acc(args)
-    else:
-      die("input file type %s not supported", inType)
+  if not args['outFile']:
+    die("specify an output file")
+  csmatch.potatoCrossIdentifier(args)
 
 def snpmatch_parser(args):
   if not args['inFile']:
     die("input file not specified")
-  if not args['outFile']:
-    args['outFile'] = args['inFile']
-  snpmatch.parseInput(args)
+  snpmatch.parseInput(inFile = args['inFile'], logDebug =  args['logDebug'], outFile = args['outFile'])
 
 def snpmatch_genotyper(args):
   checkARGs(args)
@@ -144,7 +125,7 @@ def main():
   program_version = "v%s" % __version__
   program_build_date = str(__updated__)
   program_version_message = '%%(prog)s %s (%s)' % (program_version, program_build_date)
-  program_shortdesc = "The main module for snpmatch"
+  program_shortdesc = "The main module for SNPmatch"
   program_license = '''%s
   Created by Rahul Pisupati on %s.
   Copyright 2016 Gregor Mendel Institute. All rights reserved.
