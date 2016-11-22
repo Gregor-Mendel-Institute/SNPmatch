@@ -13,7 +13,7 @@ from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
 import logging, logging.config
 
-__version__ = '1.5.1'
+__version__ = '1.6.0'
 __updated__ = "17.11.2016"
 __date__ = "25.10.2016"
 
@@ -51,7 +51,6 @@ def get_options(program_license,program_version_message):
   cross_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
   cross_parser.add_argument("-b", "--binLength", dest="binLen", help="Length of bins to calculate the likelihoods", default=300000)
   cross_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
-  cross_parser.add_argument("-c", "--crossf1", action="store_true", dest="crossf1", default=False, help="Option to identify parents in an F1 cross")
   cross_parser.add_argument("-o", "--output", dest="outFile", help="Output file with the probability scores")
   cross_parser.add_argument("-s", "--scoreFile", dest="scoreFile", help="Output of score files in each windows")
   cross_parser.set_defaults(func=snpmatch_cross)
@@ -99,6 +98,8 @@ def snpmatch_cross(args):
   checkARGs(args)
   if not args['outFile']:
     die("specify an output file")
+  if not args['scoreFile']:
+    die("specify an output file for scores")
   csmatch.potatoCrossIdentifier(args)
 
 def snpmatch_parser(args):

@@ -6,7 +6,6 @@ import numpy.ma
 from pygwas.core import genotype
 import vcfnp
 import pandas
-import argparse
 import logging
 import sys
 import os
@@ -85,8 +84,8 @@ def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs
   overlapScore = [float(NumInfoSites[i])/NumMatSNPs for i in range(num_lines)]
   probScore = np.array(probScore, dtype = float)
   (case, note) = CaseInterpreter(overlap, NumMatSNPs, topHits, probScore)
-  matches_dict = [dict((AccList[i], (probScore[i], NumInfoSites[i], overlapScore[i])) for i in topHits)]
-  topHitsDict = {'overlap': [overlap, NumMatSNPs], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}    
+  matches_dict = dict((AccList[i], (probScore[i], NumInfoSites[i], overlapScore[i])) for i in topHits)
+  topHitsDict = {'overlap': [overlap, NumMatSNPs], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}, 'interpreter': "snpmatch"}
   with open(outFile, "w") as out_stats:
     out_stats.write(json.dumps(topHitsDict))
 
@@ -105,10 +104,14 @@ def parseGT(snpGT):
   
 def readBED(inFile, logDebug):
   log.info("reading the position file")
-  targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2]) 
-  snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetSNPs[0])), "chr", "")
-  snpREQ = np.where(np.char.isdigit(snpCHROM))[0]
-  snpCHR = snpCHROM[snpREQ]
+  targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
+  try:
+    snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetSNPs[0])), "chr", "")
+    snpREQ = np.where(np.char.isdigit(snpCHROM))[0]
+    snpCHR = snpCHROM[snpREQ]
+  except:
+    snpREQ = range(len(targetSNPs[0]))
+    snpCHR = np.array(targetSNPs[0][snpREQ])
   snpPOS = np.array(targetSNPs[1], dtype=int)[snpREQ]
   snpGT = np.array(targetSNPs[2])[snpREQ]
   snpBinary = parseGT(snpGT)

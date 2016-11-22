@@ -5,14 +5,13 @@ import numpy as np
 import numpy.ma
 import scipy.stats as st
 from pygwas.core import genotype
-import vcfnp
 import pandas
-import argparse
 import logging
-import sys
 import os
 import StringIO
 import snpmatch
+import json
+import itertools
 
 log = logging.getLogger(__name__)
 
@@ -33,7 +32,7 @@ def getBins(g, binLen):
       ChrIndex = np.append(ChrIndex, i)
   return(ChrIndex, LenBins)
 
-def writeBinData(outfile, i, GenotypeData, ScoreList, NumInfoSites):
+def writeBinData(out_file, i, GenotypeData, ScoreList, NumInfoSites):
   num_lines = len(GenotypeData.accessions)
   (likeliScore, likeliHoodRatio) = snpmatch.calculate_likelihoods(ScoreList, NumInfoSites)
   if len(likeliScore) > 0:
@@ -45,21 +44,17 @@ def writeBinData(outfile, i, GenotypeData, ScoreList, NumInfoSites):
         nextLikeli = 1
       for k in NumAmb:
         score = float(ScoreList[k])/NumInfoSites[k]
-        outfile.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[k], int(ScoreList[k]), NumInfoSites[k], score, likeliScore[k], nextLikeli, len(NumAmb), i+1))
+        out_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[k], int(ScoreList[k]), NumInfoSites[k], score, likeliScore[k], nextLikeli, len(NumAmb), i+1))
 
-def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile, scoreFile):
+def crossWindower(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, outFile):
   NumSNPs = len(snpCHR)
-  log.info("loading database files")
-  GenotypeData = genotype.load_hdf5_genotype_data(hdf5File)
-  GenotypeData_acc = genotype.load_hdf5_genotype_data(hdf5accFile)
-  log.info("done!")
   num_lines = len(GenotypeData.accessions)
   NumMatSNPs = 0
   chunk_size = 1000
   TotScoreList = np.zeros(num_lines, dtype="uint32")
   TotNumInfoSites = np.zeros(num_lines, dtype="uint32")
   (ChrBins, PosBins) = getBins(GenotypeData, binLen)
-  outfile = open(outFile, 'w')
+  out_file = open(outFile, 'w')
   for i in range(len(PosBins)):
     start = np.sum(PosBins[0:i])
     end = start + PosBins[i]
@@ -90,71 +85,89 @@ def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFil
         NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     TotScoreList = TotScoreList + ScoreList
     TotNumInfoSites = TotNumInfoSites + NumInfoSites
-    writeBinData(outfile, i, GenotypeData, ScoreList, NumInfoSites)
+    writeBinData(out_file, i, GenotypeData, ScoreList, NumInfoSites)
     if i % 50 == 0:
       log.info("Done analysing %s positions", NumMatSNPs)
-  outfile.close()
-  log.info("writing score file!")
-  snpmatch.print_out_table(scoreFile, GenotypeData.accessions, TotScoreList, TotNumInfoSites, NumMatSNPs, DPmean)
+  out_file.close()
   return (TotScoreList, TotNumInfoSites)
 
-def crossF1genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
+def crossInterpreter(outFile, snpmatchJson):
+  ## ScoreFile should be one from crossF1genotyper
+  ## Output file is from the crossIdentifier
+  import operator
+  log.info("running cross interpreter!")
+  likeLiwind = pandas.read_table(outFile, header=None)
+  topHitsDict = json.load(open(snpmatchJson, 'r'))
+  topHitsDict['interpreter'] = "csmatch"
+  try:
+    parents = sorted(topHitsDict['matches'].items(), key=operator.itemgetter(1),reverse=True)[0][0].encode("ascii")
+    mother = parents.split("x")[0]
+    father = parents.split("x")[1]
+    topHitsDict['interpretation']['text'] = "Sample may be and F1 or contaminated!"
+    topHitsDict['parents'] = {'mother': [mother,1], 'father': [father,1]}
+  except:
+    homowind = np.where(likeLiwind[6] == 1)[0]
+    clean = np.unique(likeLiwind[0][homowind], return_counts = True)
+    homAcc = clean[0][np.argsort(-clean[1])[0:2]]
+    homAcccounts = clean[1][np.argsort(-clean[1])[0:2]]
+    topHitsDict['interpretation']['text'] = "Sample is be a cross!"
+    topHitsDict['parents'] = {'mother': [homAcc[0], homAcccounts[0]], 'father': [homAcc[1], homAcccounts[1]]}
+  with open(snpmatchJson, "w") as out_stats:
+    out_stats.write(json.dumps(topHitsDict))
+
+def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, GenotypeData_acc, outFile, scoreFile):
   ## Get tophit accessions
   # sorting based on the final scores
   NumSNPs = len(snpCHR)
-  log.info("loading database files")
-  GenotypeData = genotype.load_hdf5_genotype_data(hdf5File)
-  GenotypeData_acc = genotype.load_hdf5_genotype_data(hdf5accFile)
-  log.info('done!')
-  (ScoreList, NumInfoSites) = snpmatch.genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile)  
-  (LikeLiHoods, LikeLiHoodRatios) = snpmatch.calculate_likelihoods(ScoreList, NumInfoSites)
+  num_lines = len(GenotypeData.accessions)
+  (ScoreList, NumInfoSites) = crossWindower(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, outFile)
+  probScore = [float(ScoreList[i])/NumInfoSites[i] for i in range(num_lines)]
+  probScore = np.array(probScore, dtype = float)
   log.info("simulating F1s for top 10 accessions")
-  Accessions = numpy.copy(GenotypeData.accessions)
-  TopHitAccs = numpy.argsort(LikeLiHoodRatios)[0:10]
-  for i in range(len(TopHitAccs)):
-    for j in range(i+1, len(TopHitAccs)):
-      p1 = GenotypeData_acc.snps[:,TopHitAccs[i]]
-      p2 = GenotypeData_acc.snps[:,TopHitAccs[j]]
-      score = 0
-      numinfo = 0
-      NumMatSNPs = 0
-      for c in np.array(GenotypeData.chrs, dtype=int):
-        perchrTarPos = np.where(snpCHR == c)[0]
-        perchrtarSNPpos = snpPOS[perchrTarPos]
-        start = GenotypeData.chr_regions[c-1][0]
-        end = GenotypeData.chr_regions[c-1][1]
-        chrpositions = GenotypeData.positions[start:end]
-        matchedAccInd = np.where(np.in1d(chrpositions, perchrtarSNPpos))[0] + start
-        matchedTarInd = np.where(np.in1d(perchrtarSNPpos, chrpositions))[0]
-        NumMatSNPs = NumMatSNPs + len(matchedTarInd)
-        gtp1 = p1[matchedAccInd]
-        gtp2 = p2[matchedAccInd]
-        matchedTarWEI = snpWEI[matchedTarInd,]
-        homalt = numpy.where((gtp1 == 1) & (gtp2 == 1))[0]
-        homref = numpy.where((gtp1 == 0) & (gtp2 == 0))[0]
-        het = numpy.where((gtp1 != -1) & (gtp2 != -1) & (gtp1 != gtp2))[0]
-        score = score + numpy.sum(matchedTarWEI[homalt, 2]) + numpy.sum(matchedTarWEI[homref, 0]) + numpy.sum(matchedTarWEI[het, 1])
-        numinfo = numinfo + len(homalt) + len(homref) + len(het) 
-      ScoreList = numpy.append(ScoreList, score)
-      NumInfoSites = numpy.append(NumInfoSites, numinfo)
-      acc = GenotypeData.accessions[TopHitAccs[i]] + "x" + GenotypeData.accessions[TopHitAccs[j]]
-      Accessions = numpy.append(Accessions, acc)
+  Accessions = np.copy(GenotypeData.accessions)
+  TopHitAccs = np.argsort(-probScore)[0:10]
+  for (i, j) in itertools.combinations(TopHitAccs, 2):
+    p1 = GenotypeData_acc.snps[:,i]
+    p2 = GenotypeData_acc.snps[:,j]
+    score = 0
+    numinfo = 0
+    NumMatSNPs = 0
+    for c in np.array(GenotypeData.chrs, dtype=int):
+      perchrTarPos = np.where(snpCHR == c)[0]
+      perchrtarSNPpos = snpPOS[perchrTarPos]
+      start = GenotypeData.chr_regions[c-1][0]
+      end = GenotypeData.chr_regions[c-1][1]
+      chrpositions = GenotypeData.positions[start:end]
+      matchedAccInd = np.where(np.in1d(chrpositions, perchrtarSNPpos))[0] + start
+      matchedTarInd = np.where(np.in1d(perchrtarSNPpos, chrpositions))[0]
+      NumMatSNPs = NumMatSNPs + len(matchedTarInd)
+      gtp1 = p1[matchedAccInd]
+      gtp2 = p2[matchedAccInd]
+      matchedTarWEI = snpWEI[perchrTarPos[matchedTarInd],]
+      homalt = np.where((gtp1 == 1) & (gtp2 == 1))[0]
+      homref = np.where((gtp1 == 0) & (gtp2 == 0))[0]
+      het = np.where((gtp1 != -1) & (gtp2 != -1) & (gtp1 != gtp2))[0]
+      score = score + np.sum(matchedTarWEI[homalt, 2]) + np.sum(matchedTarWEI[homref, 0]) + np.sum(matchedTarWEI[het, 1])
+      numinfo = numinfo + len(homalt) + len(homref) + len(het)
+    ScoreList = np.append(ScoreList, score)
+    NumInfoSites = np.append(NumInfoSites, numinfo)
+    acc = GenotypeData.accessions[i] + "x" + GenotypeData.accessions[j]
+    Accessions = np.append(Accessions, acc)
   log.info("writing output!")
-  snpmatch.print_out_table(outFile, Accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
+  snpmatch.print_out_table(scoreFile, Accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
+  snpmatch.print_topHits(scoreFile + ".matches.json", Accessions, ScoreList, NumInfoSites, float(NumMatSNPs)/NumSNPs, NumMatSNPs)
+  crossInterpreter(outFile, scoreFile + ".matches.json")
 
 def potatoCrossIdentifier(args):
-  log.info("loading parser!")
+  log.info("running SNPmatch parser!")
   (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = snpmatch.parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
-  if args['crossf1']:
-    log.info("running f1 cross identifier!")
-    crossF1genotyper(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])
-    log.info("finished!")
-  else:
-    log.info("running cross identifier!")
-    if not args['scoreFile']:
-      snpmatch.die("file to give out scores is not specified")
-    (TotScoreList, TotNumInfoSites) = crossIdentifier(args['binLen'],snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'], args['scoreFile'])
-    log.info("finished!")
+  log.info("loading genotype files!")
+  GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
+  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
+  log.info("done!")
+  log.info("running cross identifier!")
+  crossIdentifier(args['binLen'],snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, GenotypeData_acc, args['outFile'], args['scoreFile'])
+  log.info("finished!")
 
 def crossGenotyper(args):
   ## Get the VCF file (filtered may be) generated by GATK.
