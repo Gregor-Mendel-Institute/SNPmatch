@@ -83,8 +83,9 @@ def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs
   probScore = [float(ScoreList[i])/NumInfoSites[i] for i in range(num_lines)]
   overlapScore = [float(NumInfoSites[i])/NumMatSNPs for i in range(num_lines)]
   probScore = np.array(probScore, dtype = float)
+  sorted_order = topHits[np.argsort(-probScore[topHits])]
   (case, note) = CaseInterpreter(overlap, NumMatSNPs, topHits, probScore)
-  matches_dict = [(AccList[i], (probScore[i], NumInfoSites[i], overlapScore[i])) for i in topHits]
+  matches_dict = [(AccList[i], (probScore[i], NumInfoSites[i], overlapScore[i])) for i in sorted_order]
   topHitsDict = {'overlap': [overlap, NumMatSNPs], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}
   with open(outFile, "w") as out_stats:
     out_stats.write(json.dumps(topHitsDict))
@@ -133,7 +134,7 @@ def readVcf(inFile, logDebug):
     sys.stderr = sys.__stderr__
   DPthres = np.mean(vcfD.DP[np.where(vcfD.DP > 0)[0]]) * 4
   DPmean = DPthres / 4
-  snpCHROM =  np.char.replace(np.core.defchararray.lower(vcf.CHROM), "chr", "")  ## Should take care of all possible chr names
+  snpCHROM = np.char.replace(np.core.defchararray.lower(vcf.CHROM), "chr", "")  ## Should take care of all possible chr names
   snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres) & (np.char.isdigit(snpCHROM)))[0]
   snpCHR = np.array(snpCHROM[snpsREQ]).astype("int8")
   snpPOS = np.array(vcf.POS[snpsREQ])
@@ -166,14 +167,15 @@ def parseInput(inFile, logDebug, outFile = "parser"):
       snps = np.load(inFile)
       (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
     else:
-      log.info("creating snpmatch parser dump %s", inFile + ".snpmatch.npz")
       if inType == '.vcf':
+        log.info("creating snpmatch parser dump %s", inFile + ".snpmatch.npz")
         (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(inFile, logDebug)
       elif inType == '.bed':
+        log.info("creating snpmatch parser dump %s", inFile + ".snpmatch.npz")
         (snpCHR, snpPOS, snpGT, snpWEI) = readBED(inFile, logDebug)
         DPmean = "NA"      
       else:
-        die("input file type %s not supported", inType)
+        die("input file type %s not supported" % inType)
       log.info("writing snpmatch parser dump file: %s", outFile + ".npz")
       np.savez(outFile, chr = snpCHR, pos = snpPOS, gt = snpGT, wei = snpWEI, dp = DPmean)
       NumSNPs = len(snpCHR)

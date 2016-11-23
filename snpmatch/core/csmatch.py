@@ -15,8 +15,6 @@ import itertools
 
 log = logging.getLogger(__name__)
 
-lr_thres = 3.841
-
 def getBins(g, binLen):
   binLen = int(binLen)
   chrlen = np.array((30427671, 19698289, 23459830, 18585056, 26975502))  # Arabidopsis chromosome length
@@ -36,10 +34,10 @@ def writeBinData(out_file, i, GenotypeData, ScoreList, NumInfoSites):
   num_lines = len(GenotypeData.accessions)
   (likeliScore, likeliHoodRatio) = snpmatch.calculate_likelihoods(ScoreList, NumInfoSites)
   if len(likeliScore) > 0:
-    NumAmb = np.where(likeliHoodRatio < lr_thres)[0]
+    NumAmb = np.where(likeliHoodRatio < snpmatch.lr_thres)[0]
     if len(NumAmb) >= 1 and len(NumAmb) < num_lines:
       try:
-        nextLikeli = np.nanmin(likeliHoodRatio[np.where(likeliHoodRatio > lr_thres)[0]])
+        nextLikeli = np.nanmin(likeliHoodRatio[np.where(likeliHoodRatio > snpmatch.lr_thres)[0]])
       except:
         nextLikeli = 1
       for k in NumAmb:
