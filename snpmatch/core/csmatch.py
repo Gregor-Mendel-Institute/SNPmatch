@@ -89,40 +89,86 @@ def crossWindower(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, outFile)
     if i % 50 == 0:
       log.info("Done analysing %s positions", NumMatSNPs)
   out_file.close()
-  return (TotScoreList, TotNumInfoSites)
+  return (TotScoreList, TotNumInfoSites, NumMatSNPs)
 
-def crossInterpreter(outFile, snpmatchJson):
+def getHomoWindows(likeLiwind):
+  snp_thres_wind = 100
+  x_info = np.unique(likeLiwind[7])
+  homo_wind = np.zeros(0, dtype = "int")
+  for i in x_info:
+    eWinds = likeLiwind.iloc[np.where(likeLiwind[7] == i)[0]]
+    if np.nanmean(eWinds[3]) > snpmatch.prob_thres and np.nanmean(eWinds[2]) > snp_thres_wind:
+      homo_wind = np.append(homo_wind, i)
+  return homo_wind
+
+def crossInterpreter(GenotypeData, binLen, outFile, scoreFile):
   ## ScoreFile should be one from crossF1genotyper
   ## Output file is from the crossIdentifier
-  import operator
+  cs_thres = 0.9
   log.info("running cross interpreter!")
+  num_lines = len(GenotypeData.accessions)
   likeLiwind = pandas.read_table(outFile, header=None)
-  topHitsDict = json.load(open(snpmatchJson, 'r'))
-  topHitsDict['interpreter'] = "csmatch"
-  try:
-    parents = sorted(topHitsDict['matches'].items(), key=operator.itemgetter(1),reverse=True)[0][0].encode("ascii")
-    mother = parents.split("x")[0]
-    father = parents.split("x")[1]
-    topHitsDict['interpretation']['text'] = "Sample may be and F1 or contaminated!"
-    topHitsDict['parents'] = {'mother': [mother,1], 'father': [father,1]}
-  except:
-    homowind = np.where(likeLiwind[6] == 1)[0]
-    clean = np.unique(likeLiwind[0][homowind], return_counts = True)
-    homAcc = clean[0][np.argsort(-clean[1])[0:2]]
-    homAcccounts = clean[1][np.argsort(-clean[1])[0:2]]
-    topHitsDict['interpretation']['text'] = "Sample is be a cross!"
-    topHitsDict['parents'] = {'mother': [homAcc[0], homAcccounts[0]], 'father': [homAcc[1], homAcccounts[1]]}
-  with open(snpmatchJson, "w") as out_stats:
-    out_stats.write(json.dumps(topHitsDict))
+  ScoreAcc = pandas.read_table(scoreFile, header=None)
+  topHitsDict = json.load(open(scoreFile + ".matches.json", 'r'))
+  if topHitsDict['interpretation']['case'] == 3:
+    homo_wind = getHomoWindows(likeLiwind)
+    homo_acc = np.unique(likeLiwind[0][np.where(np.in1d(likeLiwind[7], homo_wind))[0]],return_counts=True)
+    matches_dict = [(homo_acc[0][i].astype("string"), homo_acc[1][i]) for i in np.argsort(-homo_acc[1])]
+    topHitsDict['matches'] = matches_dict 
+    f1matches = ScoreAcc.iloc[~np.in1d(ScoreAcc[0], GenotypeData.accessions)].reset_index()
+    topMatch = np.argsort(f1matches[5])[0]  ## top F1 match sorted based on likelihood
+    if f1matches[3][topMatch] > cs_thres:
+      mother = f1matches[0][topMatch].split("x")[0]
+      father = f1matches[0][topMatch].split("x")[1]
+      topHitsDict['interpretation']['text'] = "Sample may be an F1! or a contamination!"
+      topHitsDict['interpretation']['case'] = 5
+      topHitsDict['parents'] = {'mother': [mother,1], 'father': [father,1]}
+      topHitsDict['genotype_windows'] = {'chr_bins': None, 'coordinates': {'x': None, 'y': None}}
+    else:
+      (ChrBins, PosBins) = getBins(GenotypeData, binLen) 
+      ## Get exactly the homozygous windows with one count
+      clean = np.unique(likeLiwind[0][np.where(likeLiwind[6] == 1)[0]], return_counts = True)
+      if len(clean[0]) > 0:  ## Check if there are atlease one homozygous window
+        parents = clean[0][np.argsort(-clean[1])[0:2]].astype("string")
+        parents_counts = clean[1][np.argsort(-clean[1])[0:2]].astype("int")
+        xdict = np.array(np.unique(likeLiwind[7]), dtype="int")
+        ydict = np.zeros(len(xdict), dtype="int")
+        if len(parents) == 1:
+          topHitsDict['interpretation']['text'] = "Sample may be a cross! but only one parent found!"
+          topHitsDict['interpretation']['case'] = 6
+          topHitsDict['parents'] = {'mother': [parents[0], parents_counts[0]], 'father': ["NA", "NA"]}
+          par1_ind = likeLiwind[7][np.where((likeLiwind[0].astype("string") == parents[0]) & np.in1d(likeLiwind[7], homo_wind))[0]]
+          ydict[np.where(np.in1d(xdict,par1_ind))[0]] = 1
+        else:
+          topHitsDict['interpretation']['text'] = "Sample may be a cross!"
+          topHitsDict['interpretation']['case'] = 6
+          topHitsDict['parents'] = {'mother': [parents[0], parents_counts[0]], 'father': [parents[1], parents_counts[1]]}
+          NumChrs = np.unique(ChrBins, return_counts=True)
+          chr_bins = dict(('Chr%s' % NumChrs[0][i], NumChrs[1][i]) for i in range(len(NumChrs[0])))
+          par1_ind = np.array(likeLiwind[7][np.where((likeLiwind[0].astype("string") == parents[0]) & np.in1d(likeLiwind[7], homo_wind))[0]])
+          par2_ind = np.array(likeLiwind[7][np.where((likeLiwind[0].astype("string") == parents[1]) & np.in1d(likeLiwind[7], homo_wind))[0]])
+          ydict[np.where(np.in1d(xdict,par1_ind))[0]] = 1
+          ydict[np.where(np.in1d(xdict,par2_ind))[0]] = 2
+        xdict = xdict.tolist()
+        ydict = ydict.tolist()
+        topHitsDict['genotype_windows'] = {'chr_bins': chr_bins, 'coordinates': {'x': xdict, 'y': ydict}}
+      else:   ## No homozygous window found!
+        topHitsDict['interpretation']['case'] = 7
+        topHitsDict['interpretation']['text'] = "Sample may just be contamination!"
+        topHitsDict['genotype_windows'] = {'chr_bins': None, 'coordinates': {'x': None, 'y': None}}
+        topHitsDict['parents'] = {'mother': [None,0], 'father': [None,1]}
+    with open(scoreFile + ".matches.json", "w") as out_stats:
+      out_stats.write(json.dumps(topHitsDict))
 
 def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, GenotypeData_acc, outFile, scoreFile):
   ## Get tophit accessions
   # sorting based on the final scores
   NumSNPs = len(snpCHR)
   num_lines = len(GenotypeData.accessions)
-  (ScoreList, NumInfoSites) = crossWindower(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, outFile)
+  (ScoreList, NumInfoSites, NumMatSNPs) = crossWindower(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, outFile)
   probScore = [float(ScoreList[i])/NumInfoSites[i] for i in range(num_lines)]
   probScore = np.array(probScore, dtype = float)
+  snpmatch.print_topHits(scoreFile + ".matches.json", GenotypeData.accessions, ScoreList, NumInfoSites, float(NumMatSNPs)/NumSNPs, NumMatSNPs)
   log.info("simulating F1s for top 10 accessions")
   Accessions = np.copy(GenotypeData.accessions)
   TopHitAccs = np.argsort(-probScore)[0:10]
@@ -155,11 +201,9 @@ def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, Genoty
     Accessions = np.append(Accessions, acc)
   log.info("writing output!")
   snpmatch.print_out_table(scoreFile, Accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
-  snpmatch.print_topHits(scoreFile + ".matches.json", Accessions, ScoreList, NumInfoSites, float(NumMatSNPs)/NumSNPs, NumMatSNPs)
-  crossInterpreter(outFile, scoreFile + ".matches.json")
+  crossInterpreter(GenotypeData, binLen, outFile, scoreFile)
 
 def potatoCrossIdentifier(args):
-  log.info("running SNPmatch parser!")
   (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = snpmatch.parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
   log.info("loading genotype files!")
   GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])

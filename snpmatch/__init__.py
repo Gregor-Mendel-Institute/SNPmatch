@@ -14,7 +14,7 @@ from snpmatch.core import csmatch
 import logging, logging.config
 
 __version__ = '1.6.0'
-__updated__ = "17.11.2016"
+__updated__ = "23.11.2016"
 __date__ = "25.10.2016"
 
 def setLog(logDebug):
@@ -67,13 +67,6 @@ def get_options(program_license,program_version_message):
   parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   parser.add_argument("-o", "--output", dest="outFile", help="output + .npz file is generater required for SNPmatch")
   parser.set_defaults(func=snpmatch_parser)
-  genotyper = subparsers.add_parser('genotyper', help="SNPmatch genotyper for inbred samples")
-  genotyper.add_argument("-i", "--input_file", dest="inFile", help="input file from parser -- .npz")
-  genotyper.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
-  genotyper.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
-  genotyper.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
-  genotyper.add_argument("-o", "--output", dest="outFile", help="Output file with the probability scores")
-  genotyper.set_defaults(func=snpmatch_genotyper)
   return inOptions
 
 def checkARGs(args):
@@ -92,7 +85,7 @@ def checkARGs(args):
 
 def snpmatch_inbred(args):
   checkARGs(args)
-  snpmatch.potatoCompareSNPs(args)
+  snpmatch.potatoGenotyper(args)
 
 def snpmatch_cross(args):
   checkARGs(args)
@@ -105,15 +98,9 @@ def snpmatch_cross(args):
 def snpmatch_parser(args):
   if not args['inFile']:
     die("input file not specified")
+  if not os.path.isfile(args['inFile']):
+    die("input file does not exist: " + args['inFile'])
   snpmatch.parseInput(inFile = args['inFile'], logDebug =  args['logDebug'], outFile = args['outFile'])
-
-def snpmatch_genotyper(args):
-  checkARGs(args)
-  _,inType = os.path.splitext(args['inFile'])
-  if inType == ".npz":
-    snpmatch.potatoGenotyper(args)
-  else:
-    die("input for the genotyper should be .npz file generated from SNPmatch parser")
 
 def genotype_cross(args):
   #checkARGs(args)
