@@ -67,7 +67,7 @@ def CaseInterpreter(overlap, NumSNPs, topHits, probScore):
       note = "An ambiguous sample: Accessions in top hits can be really close"
     elif overlap > overlap_thres:
       case = 3
-      note = "An ambiguous sample: Sample might contain DNA contamination or have DNA mixture"
+      note = "An ambiguous sample: Sample might contain mixture of DNA or contamination"
     elif overlap < overlap_thres:
       case = 4
       note = "An ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
@@ -85,7 +85,7 @@ def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs
   probScore = np.array(probScore, dtype = float)
   sorted_order = topHits[np.argsort(-probScore[topHits])]
   (case, note) = CaseInterpreter(overlap, NumMatSNPs, topHits, probScore)
-  matches_dict = [(AccList[i], (probScore[i], NumInfoSites[i], overlapScore[i])) for i in sorted_order]
+  matches_dict = [(AccList[i], probScore[i], NumInfoSites[i], overlapScore[i]) for i in sorted_order]
   topHitsDict = {'overlap': [overlap, NumMatSNPs], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}
   with open(outFile, "w") as out_stats:
     out_stats.write(json.dumps(topHitsDict))
@@ -107,12 +107,12 @@ def readBED(inFile, logDebug):
   log.info("reading the position file")
   targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
   try:
-    snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetSNPs[0])), "chr", "")
+    snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetSNPs[0], dtype="string")), "chr", "")
     snpREQ = np.where(np.char.isdigit(snpCHROM))[0]
-    snpCHR = snpCHROM[snpREQ]
+    snpCHR = np.array(snpCHROM[snpREQ]).astype("int8")
   except:
     snpREQ = range(len(targetSNPs[0]))
-    snpCHR = np.array(targetSNPs[0][snpREQ])
+    snpCHR = np.array(targetSNPs[0][snpREQ]).astype("int8")
   snpPOS = np.array(targetSNPs[1], dtype=int)[snpREQ]
   snpGT = np.array(targetSNPs[2])[snpREQ]
   snpBinary = parseGT(snpGT)
@@ -154,7 +154,7 @@ def readVcf(inFile, logDebug):
   return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
 
 def parseInput(inFile, logDebug, outFile = "parser"):
-  if outFile == "parser":
+  if outFile == "parser" or not outFile:
     outFile = inFile + ".snpmatch"
   if os.path.isfile(inFile + ".snpmatch.npz"):
     log.info("snpmatch parser dump found! loading %s", inFile + ".snpmatch.npz")

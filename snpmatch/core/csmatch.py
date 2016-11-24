@@ -90,7 +90,7 @@ def crossWindower(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, outFile)
   return (TotScoreList, TotNumInfoSites, NumMatSNPs)
 
 def getHomoWindows(likeLiwind):
-  snp_thres_wind = 100
+  snp_thres_wind = np.nanmean(likeLiwind[2]) - np.std(likeLiwind[2])
   x_info = np.unique(likeLiwind[7])
   homo_wind = np.zeros(0, dtype = "int")
   for i in x_info:
@@ -118,7 +118,7 @@ def crossInterpreter(GenotypeData, binLen, outFile, scoreFile):
     if f1matches[3][topMatch] > cs_thres:
       mother = f1matches[0][topMatch].split("x")[0]
       father = f1matches[0][topMatch].split("x")[1]
-      topHitsDict['interpretation']['text'] = "Sample may be an F1! or a contamination!"
+      topHitsDict['interpretation']['text'] = "Sample may be a F1! or a contamination!"
       topHitsDict['interpretation']['case'] = 5
       topHitsDict['parents'] = {'mother': [mother,1], 'father': [father,1]}
       topHitsDict['genotype_windows'] = {'chr_bins': None, 'coordinates': {'x': None, 'y': None}}
@@ -130,23 +130,23 @@ def crossInterpreter(GenotypeData, binLen, outFile, scoreFile):
         parents = clean[0][np.argsort(-clean[1])[0:2]].astype("string")
         parents_counts = clean[1][np.argsort(-clean[1])[0:2]].astype("int")
         xdict = np.array(np.unique(likeLiwind[7]), dtype="int")
-        ydict = np.zeros(len(xdict), dtype="int")
+        ydict = np.repeat("NA", len(xdict)).astype("a25")
         if len(parents) == 1:
-          topHitsDict['interpretation']['text'] = "Sample may be a cross! but only one parent found!"
+          topHitsDict['interpretation']['text'] = "Sample may be a F2! but only one parent found!"
           topHitsDict['interpretation']['case'] = 6
           topHitsDict['parents'] = {'mother': [parents[0], parents_counts[0]], 'father': ["NA", "NA"]}
           par1_ind = likeLiwind[7][np.where((likeLiwind[0].astype("string") == parents[0]) & np.in1d(likeLiwind[7], homo_wind))[0]]
-          ydict[np.where(np.in1d(xdict,par1_ind))[0]] = 1
+          ydict[np.where(np.in1d(xdict,par1_ind))[0]] = parents[0]
         else:
-          topHitsDict['interpretation']['text'] = "Sample may be a cross!"
+          topHitsDict['interpretation']['text'] = "Sample may be a F2!"
           topHitsDict['interpretation']['case'] = 6
           topHitsDict['parents'] = {'mother': [parents[0], parents_counts[0]], 'father': [parents[1], parents_counts[1]]}
           NumChrs = np.unique(ChrBins, return_counts=True)
           chr_bins = dict(('Chr%s' % NumChrs[0][i], NumChrs[1][i]) for i in range(len(NumChrs[0])))
           par1_ind = np.array(likeLiwind[7][np.where((likeLiwind[0].astype("string") == parents[0]) & np.in1d(likeLiwind[7], homo_wind))[0]])
           par2_ind = np.array(likeLiwind[7][np.where((likeLiwind[0].astype("string") == parents[1]) & np.in1d(likeLiwind[7], homo_wind))[0]])
-          ydict[np.where(np.in1d(xdict,par1_ind))[0]] = 1
-          ydict[np.where(np.in1d(xdict,par2_ind))[0]] = 2
+          ydict[np.where(np.in1d(xdict,par1_ind))[0]] = parents[0]
+          ydict[np.where(np.in1d(xdict,par2_ind))[0]] = parents[1]
         xdict = xdict.tolist()
         ydict = ydict.tolist()
         topHitsDict['genotype_windows'] = {'chr_bins': chr_bins, 'coordinates': {'x': xdict, 'y': ydict}}
