@@ -74,7 +74,7 @@ def CaseInterpreter(overlap, NumSNPs, topHits, probScore):
   else:
     case = 1
     note = "An ambiguous sample: Very few number of SNPs!"
-  return (case, note)  
+  return (case, note)
 
 def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs):
   num_lines = len(ScoreList)
@@ -92,7 +92,7 @@ def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs
 
 def parseGT(snpGT):
   first = snpGT[0]
-  snpBinary = np.zeros(len(snpGT), dtype = "int8") 
+  snpBinary = np.zeros(len(snpGT), dtype = "int8")
   if first.find('|') != -1:
     ## GT is phased
     snpBinary[np.where(snpGT == "1|1")[0]] = 1
@@ -102,7 +102,7 @@ def parseGT(snpGT):
     snpBinary[np.where(snpGT == "1/1")[0]] = 1
     snpBinary[np.where(snpGT == "0/1")[0]] = 2
   return snpBinary
-  
+
 def readBED(inFile, logDebug):
   log.info("reading the position file")
   targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
@@ -121,7 +121,7 @@ def readBED(inFile, logDebug):
   snpWEI[np.where(snpBinary != 1),2] = 0
   snpWEI[np.where(snpBinary != 2),1] = 0
   return (snpCHR, snpPOS, snpGT, snpWEI)
-  
+
 def readVcf(inFile, logDebug):
   log.info("reading the VCF file")
   if logDebug:
@@ -173,7 +173,7 @@ def parseInput(inFile, logDebug, outFile = "parser"):
       elif inType == '.bed':
         log.info("creating snpmatch parser dump %s", inFile + ".snpmatch.npz")
         (snpCHR, snpPOS, snpGT, snpWEI) = readBED(inFile, logDebug)
-        DPmean = "NA"      
+        DPmean = "NA"
       else:
         die("input file type %s not supported" % inType)
       log.info("writing snpmatch parser dump file: %s", outFile + ".npz")
@@ -191,7 +191,7 @@ def parseInput(inFile, logDebug, outFile = "parser"):
         out_stats.write(json.dumps(statdict))
   log.info("done!")
   return (snpCHR, snpPOS, snpGT, snpWEI, DPmean)
- 
+
 def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
   NumSNPs = len(snpCHR)
   log.info("loading database files")
@@ -244,7 +244,3 @@ def potatoGenotyper(args):
   log.info("running genotyper!")
   (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])
   log.info("finished!")
-
-
-
-
