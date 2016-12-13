@@ -13,8 +13,8 @@ from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
 import logging, logging.config
 
-__version__ = '1.6.1'
-__updated__ = "24.11.2016"
+__version__ = '1.7.0'
+__updated__ = "13.12.2016"
 __date__ = "25.10.2016"
 
 def setLog(logDebug):
@@ -100,6 +100,9 @@ def snpmatch_parser(args):
     die("input file not specified")
   if not os.path.isfile(args['inFile']):
     die("input file does not exist: " + args['inFile'])
+  if not args['outFile']:
+    if os.path.isfile(args['inFile'] + ".snpmatch.npz"):
+      os.remove(args['inFile'] + ".snpmatch.npz")
   snpmatch.parseInput(inFile = args['inFile'], logDebug =  args['logDebug'], outFile = args['outFile'])
 
 def genotype_cross(args):

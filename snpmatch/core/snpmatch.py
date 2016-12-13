@@ -58,22 +58,22 @@ def print_out_table(outFile, AccList, ScoreList, NumInfoSites, NumMatSNPs, DPmea
 def CaseInterpreter(overlap, NumSNPs, topHits, probScore):
   overlap_thres = 0.5
   num_lines = len(probScore)
-  if NumSNPs > snp_thres:
-    if len(topHits) == 1:
-      case = 0
-      note = "Perfect hit!"
-    elif np.nanmean(probScore[topHits]) > prob_thres:
-      case = 2
-      note = "An ambiguous sample: Accessions in top hits can be really close"
-    elif overlap > overlap_thres:
-      case = 3
-      note = "An ambiguous sample: Sample might contain mixture of DNA or contamination"
-    elif overlap < overlap_thres:
-      case = 4
-      note = "An ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
-  else:
+  case = 10
+  if len(topHits) == 1:
+    case = 0
+    note = "Perfect hit!"
+  elif np.nanmean(probScore[topHits]) > prob_thres:
+    case = 2
+    note = "An ambiguous sample: Accessions in top hits can be really close"
+  elif overlap > overlap_thres:
+    case = 3
+    note = "An ambiguous sample: Sample might contain mixture of DNA or contamination"
+  elif overlap < overlap_thres:
+    case = 4
+    note = "An ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
+  if case > 2:
     case = 1
-    note = "An ambiguous sample: Very few number of SNPs!"
+    note = "Attention: Very few number of SNPs!"
   return (case, note)
 
 def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs):
@@ -97,22 +97,22 @@ def parseGT(snpGT):
     ## GT is phased
     snpBinary[np.where(snpGT == "1|1")[0]] = 1
     snpBinary[np.where(snpGT == "0|1")[0]] = 2
-  else:
+  elif first.find('/') != -1:
     ## GT is not phased
     snpBinary[np.where(snpGT == "1/1")[0]] = 1
     snpBinary[np.where(snpGT == "0/1")[0]] = 2
+  elif np.char.isdigit(first):
+    snpBinary = np.array(np.copy(snpGT), dtype = "int8")
+  else:
+    die("unable to parse the format of GT in vcf!")
   return snpBinary
 
 def readBED(inFile, logDebug):
   log.info("reading the position file")
   targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
-  try:
-    snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetSNPs[0], dtype="string")), "chr", "")
-    snpREQ = np.where(np.char.isdigit(snpCHROM))[0]
-    snpCHR = np.array(snpCHROM[snpREQ]).astype("int8")
-  except:
-    snpREQ = range(len(targetSNPs[0]))
-    snpCHR = np.array(targetSNPs[0][snpREQ]).astype("int8")
+  snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetSNPs[0], dtype="string")), "chr", "")
+  snpREQ = np.where(np.char.isdigit(snpCHROM))[0]
+  snpCHR = np.array(snpCHROM[snpREQ]).astype("int8")
   snpPOS = np.array(targetSNPs[1], dtype=int)[snpREQ]
   snpGT = np.array(targetSNPs[2])[snpREQ]
   snpBinary = parseGT(snpGT)
@@ -138,14 +138,17 @@ def readVcf(inFile, logDebug):
   snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres) & (np.char.isdigit(snpCHROM)))[0]
   snpCHR = np.array(snpCHROM[snpsREQ]).astype("int8")
   snpPOS = np.array(vcf.POS[snpsREQ])
-  snpGT = np.array(vcfD.GT[snpsREQ,0])
+  try:
+    snpGT = np.array(vcfD.GT[snpsREQ,0])
+  except AttributeError:
+    die("input VCF file doesnt have required GT field")
   try:
     snpPL = vcfD.PL[snpsREQ, 0]
     snpWEI = np.copy(snpPL)
     snpWEI = snpWEI.astype(float)
     snpWEI = snpWEI/(-10)
     snpWEI = np.exp(snpWEI)
-  except:
+  except AttributeError:
     snpBinary = parseGT(snpGT)
     snpWEI = np.ones((len(snpsREQ), 3))  ## for homo and het
     snpWEI[np.where(snpBinary != 0),0] = 0
@@ -176,7 +179,6 @@ def parseInput(inFile, logDebug, outFile = "parser"):
         DPmean = "NA"
       else:
         die("input file type %s not supported" % inType)
-      log.info("writing snpmatch parser dump file: %s", outFile + ".npz")
       np.savez(outFile, chr = snpCHR, pos = snpPOS, gt = snpGT, wei = snpWEI, dp = DPmean)
       NumSNPs = len(snpCHR)
       case = 0
