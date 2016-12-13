@@ -8,10 +8,9 @@ The below steps deal with running SNPmatch on a local machine.
 
 ### Using pip: 
 
-```bash
-git clone git@github.com:Gregor-Mendel-Institute/SNPmatch.git 
-cd SNPmatch
-pip install -r requirements.txt
+```bash 
+pip install -e git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git
+## or just
 pip install SNPmatch
 ```
 
