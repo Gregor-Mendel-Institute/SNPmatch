@@ -16,7 +16,7 @@ pip install SNPmatch
 
 ### Requirements
 
-The snpmatch uses various python packages (numpy, pandas, pygwas, vcfnp). The main SNP database should be a HDF5 file with specific keys. Mainly read using pygwas package.
+The SNPmatch uses various python packages (numpy, pandas, pygwas, vcfnp). The main SNP database should be a HDF5 file with specific keys. Mainly read using pygwas package.
 
 ### Input files
 
@@ -47,6 +47,8 @@ SNPmatch can be run as bash commands given below. A detailed manual for each com
 ```bash
 snpmatch inbred -i input_file -d db.hdf5 -e db.acc.hdf5 -o output_file
 snpmatch cross -i input_file -d db.hdf5 -e db.acc.hdf5 -o output_file -s score_file
+# the SNPmatch parser
+snpmatch parser -i intput_file -o output_npz 
 ```
 
 
@@ -71,6 +73,3 @@ SNPmatch can be run directly for A. thaliana researchers as a web tool, [AraGeno
 
 - Rahul Pisupati (rahul.pisupati[at]gmi.oeaw.ac.at) 
 - Ümit Seren (uemit.seren[at]gmi.oeaw.ac.at)
-
-## License
-MIT license
