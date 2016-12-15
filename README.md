@@ -66,10 +66,14 @@ SNPmatch can be run directly for A. thaliana researchers as a web tool, [AraGeno
 
 ## History
 
-- 1.7.1: Stable version, 14-12-2016
+- 1.7.2: Stable version, 15-12-2016
 
 
 ## Credits
 
 - Rahul Pisupati (rahul.pisupati[at]gmi.oeaw.ac.at) 
 - Ümit Seren (uemit.seren[at]gmi.oeaw.ac.at)
+
+## Citation
+
+Pisupati et. al. Verification of Arabidopsis stock collection using SNPmatch - an algorithm to genotype high-plexed samples, manuscript under preparation.

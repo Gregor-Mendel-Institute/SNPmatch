@@ -13,7 +13,7 @@ from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
 import logging, logging.config
 
-__version__ = '1.7.1'
+__version__ = '1.7.2'
 __updated__ = "15.12.2016"
 __date__ = "25.10.2016"
 
