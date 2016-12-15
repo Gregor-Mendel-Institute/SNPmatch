@@ -23,13 +23,15 @@ def die(msg):
 
 def likeliTest(n, y):
   p = 0.99999999
-  if n > 0 and n != y:
+  if n > 0 and n != y and y > 0:
     pS = float(y)/n
     a = y * np.log(pS/p)
     b = (n - y) * np.log((1-pS)/(1-p))
     return(a+b)
   elif n == y and n > 0:
     return 1
+  elif y == 0:
+    return likeliTest(n, y + 1)
   else:
     return np.nan
 
