@@ -10,7 +10,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='SNPmatch',
-    version='1.7.2',
+    version='1.8.0',
     description='A simple python library to identify the most likely strain given the SNPs for a sample',
     long_description=long_description,
     url='https://github.com/Gregor-Mendel-Institute/SNPmatch',
@@ -38,4 +38,3 @@ setup(
         ],
     },
 )
-
