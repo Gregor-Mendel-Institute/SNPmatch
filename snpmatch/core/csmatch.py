@@ -99,10 +99,12 @@ def getHomoWindows(likeLiwind):
       homo_wind = np.append(homo_wind, i)
   return homo_wind
 
-def crossInterpreter(GenotypeData, binLen, outFile, scoreFile):
+def crossInterpreter(GenotypeData, binLen, outID):
   ## ScoreFile should be one from crossF1genotyper
   ## Output file is from the crossIdentifier
   cs_thres = 0.9
+  outFile = outID + '.windowscore.txt'
+  scoreFile = outID + '.scores.txt'
   log.info("running cross interpreter!")
   num_lines = len(GenotypeData.accessions)
   likeLiwind = pandas.read_table(outFile, header=None)
@@ -112,7 +114,7 @@ def crossInterpreter(GenotypeData, binLen, outFile, scoreFile):
     homo_wind = getHomoWindows(likeLiwind)
     homo_acc = np.unique(likeLiwind[0][np.where(np.in1d(likeLiwind[7], homo_wind))[0]],return_counts=True)
     matches_dict = [(homo_acc[0][i].astype("string"), homo_acc[1][i]) for i in np.argsort(-homo_acc[1])]
-    topHitsDict['matches'] = matches_dict 
+    topHitsDict['matches'] = matches_dict
     f1matches = ScoreAcc.iloc[~np.in1d(ScoreAcc[0], GenotypeData.accessions)].reset_index()
     topMatch = np.argsort(f1matches[5])[0]  ## top F1 match sorted based on likelihood
     if f1matches[3][topMatch] > cs_thres:
@@ -123,7 +125,7 @@ def crossInterpreter(GenotypeData, binLen, outFile, scoreFile):
       topHitsDict['parents'] = {'mother': [mother,1], 'father': [father,1]}
       topHitsDict['genotype_windows'] = {'chr_bins': None, 'coordinates': {'x': None, 'y': None}}
     else:
-      (ChrBins, PosBins) = getBins(GenotypeData, binLen) 
+      (ChrBins, PosBins) = getBins(GenotypeData, binLen)
       ## Get exactly the homozygous windows with one count
       clean = np.unique(likeLiwind[0][np.where(likeLiwind[6] == 1)[0]], return_counts = True)
       if len(clean[0]) > 0:  ## Check if there are atlease one homozygous window
@@ -155,12 +157,14 @@ def crossInterpreter(GenotypeData, binLen, outFile, scoreFile):
         topHitsDict['interpretation']['text'] = "Sample may just be contamination!"
         topHitsDict['genotype_windows'] = {'chr_bins': None, 'coordinates': {'x': None, 'y': None}}
         topHitsDict['parents'] = {'mother': [None,0], 'father': [None,1]}
-    with open(scoreFile + ".matches.json", "w") as out_stats:
+    with open(outID + ".matches.json", "w") as out_stats:
       out_stats.write(json.dumps(topHitsDict))
 
-def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, GenotypeData_acc, outFile, scoreFile):
+def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, GenotypeData_acc, outID):
   ## Get tophit accessions
   # sorting based on the final scores
+  outFile = outID + '.windowscore.txt'
+  scoreFile = outID + '.scores.txt'
   NumSNPs = len(snpCHR)
   num_lines = len(GenotypeData.accessions)
   (ScoreList, NumInfoSites, NumMatSNPs) = crossWindower(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, outFile)
@@ -208,7 +212,7 @@ def potatoCrossIdentifier(args):
   GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
   log.info("done!")
   log.info("running cross identifier!")
-  crossIdentifier(args['binLen'],snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, GenotypeData_acc, args['outFile'], args['scoreFile'])
+  crossIdentifier(args['binLen'],snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, GenotypeData_acc, args['outFile'])
   log.info("finished!")
 
 def crossGenotyper(args):
@@ -221,9 +225,9 @@ def crossGenotyper(args):
   # 5) Chromosome length
   (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = snpmatch.parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
   parents = args['parents']
-  ## need to filter the SNPs present in C and M 
+  ## need to filter the SNPs present in C and M
   log.info("loading HDF5 file")
-  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])  
+  GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
   ## die if either parents are not in the dataset
   try:
     indP1 = np.where(GenotypeData_acc.accessions == parents.split("x")[0])[0][0]
@@ -274,6 +278,3 @@ def crossGenotyper(args):
       log.info("progress: %s windows", i+10)
   log.info("done!")
   outfile.close()
-
-
-

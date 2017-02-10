@@ -51,8 +51,7 @@ def get_options(program_license,program_version_message):
   cross_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
   cross_parser.add_argument("-b", "--binLength", dest="binLen", help="Length of bins to calculate the likelihoods", default=300000)
   cross_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
-  cross_parser.add_argument("-o", "--output", dest="outFile", help="Output file with the probability scores")
-  cross_parser.add_argument("-s", "--scoreFile", dest="scoreFile", help="Output of score files in each windows")
+  cross_parser.add_argument("-o", "--output", dest="outFile", help="Output files with the probability scores and scores along windows")
   cross_parser.set_defaults(func=snpmatch_cross)
   genocross_parser = subparsers.add_parser('genotype_cross', help="Genotype the crosses by windows given parents")
   genocross_parser.add_argument("-i", "--input_file", dest="inFile", help="VCF file for the variants in the sample")
@@ -120,12 +119,12 @@ def main():
   program_license = '''%s
   Created by Rahul Pisupati on %s.
   Copyright 2016 Gregor Mendel Institute. All rights reserved.
- 
+
   Distributed on an "AS IS" basis without warranties
   or conditions of any kind, either express or implied.
 USAGE
 ''' % (program_shortdesc, str(__date__))
-  
+
   parser = get_options(program_license,program_version_message)
   args = vars(parser.parse_args())
   setLog(args['logDebug'])
@@ -143,4 +142,3 @@ USAGE
 
 if __name__=='__main__':
   sys.exit(main())
-

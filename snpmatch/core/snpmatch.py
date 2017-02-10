@@ -14,7 +14,7 @@ import json
 
 log = logging.getLogger(__name__)
 lr_thres = 3.841
-snp_thres = 5000
+snp_thres = 4000
 prob_thres = 0.98
 
 def die(msg):
@@ -63,16 +63,16 @@ def CaseInterpreter(overlap, NumSNPs, topHits, probScore):
   case = 10
   if len(topHits) == 1:
     case = 0
-    note = "Perfect hit!"
+    note = "Unique hit"
   elif np.nanmean(probScore[topHits]) > prob_thres:
     case = 2
-    note = "An ambiguous sample: Accessions in top hits can be really close"
+    note = "Ambiguous sample: Accessions in top hits can be really close"
   elif overlap > overlap_thres:
     case = 3
-    note = "An ambiguous sample: Sample might contain mixture of DNA or contamination"
+    note = "Ambiguous sample: Sample might contain mixture of DNA or contamination"
   elif overlap < overlap_thres:
     case = 4
-    note = "An ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
+    note = "Ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
   if case > 2:
     case = 1
     note = "Attention: Very few number of SNPs!"
@@ -237,7 +237,7 @@ def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
     log.info("Done analysing %s positions", NumMatSNPs)
   log.info("writing score file!")
   overlap = float(NumMatSNPs)/NumSNPs
-  print_out_table(outFile,GenotypeData.accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
+  print_out_table(outFile + '.scores.txt',GenotypeData.accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
   if not outFile:
     outFile = "genotyper"
   print_topHits(outFile + ".matches.json", GenotypeData.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs)
