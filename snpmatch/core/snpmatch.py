@@ -73,9 +73,9 @@ def CaseInterpreter(overlap, NumSNPs, topHits, probScore):
   elif overlap < overlap_thres:
     case = 4
     note = "Ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
-  if case > 2:
+  if case > 4:
     case = 1
-    note = "Attention: Very few number of SNPs!"
+    note = "Ambiguous sample"
   return (case, note)
 
 def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs):
@@ -248,3 +248,30 @@ def potatoGenotyper(args):
   log.info("running genotyper!")
   (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])
   log.info("finished!")
+
+def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
+    (snpCHR1, snpPOS1, snpGT1, snpWEI1, DPmean1) = parseInput(inFile = inFile_1, logDebug = logDebug)
+    (snpCHR2, snpPOS2, snpGT2, snpWEI2, DPmean2) = parseInput(inFile = inFile_2, logDebug = logDebug)
+    snpmatch_stats = {}
+    unique_1, unique_2, common, scores = 0, 0, 0, 0
+    chrs = np.union1d(snpCHR1, snpCHR2)
+    for i in chrs:
+        perchrTarPosInd1 = np.where(snpCHR1 == i)[0]
+        perchrTarPosInd2 = np.where(snpCHR2 == i)[0]
+        log.info("Analysing chromosome %s positions", i)
+        perchrtarSNPpos1 = snpPOS1[perchrTarPosInd1]
+        perchrtarSNPpos2 = snpPOS2[perchrTarPosInd2]
+        matchedAccInd1 = np.where(np.in1d(perchrtarSNPpos1, perchrtarSNPpos2))[0]
+        matchedAccInd2 = np.where(np.in1d(perchrtarSNPpos2, perchrtarSNPpos1))[0]
+        unique_1 = unique_1 + len(perchrTarPosInd1) - len(matchedAccInd1)
+        unique_2 = unique_2 + len(perchrTarPosInd2) - len(matchedAccInd2)
+        common = common + len(matchedAccInd1)
+        scores = scores + np.sum(np.array(snpGT1[matchedAccInd1] == snpGT2[matchedAccInd2], dtype = int))
+    snpmatch_stats['unique'] = {"%s" % os.path.basename(inFile_1): [float(unique_1)/len(snpCHR1), len(snpCHR1)], "%s" % os.path.basename(inFile_2): [float(unique_2)/len(snpCHR2), len(snpCHR2)]}
+    snpmatch_stats['matches'] = [float(scores)/common, common]
+    if not outFile:
+        outFile = "genotyper"
+    log.info("writing output in a file: %s" % outFile + ".matches.json")
+    with open(outFile + ".matches.json", "w") as out_stats:
+        out_stats.write(json.dumps(snpmatch_stats))
+    log.info("finished!")

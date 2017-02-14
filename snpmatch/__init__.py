@@ -66,6 +66,12 @@ def get_options(program_license,program_version_message):
   parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   parser.add_argument("-o", "--output", dest="outFile", help="output + .npz file is generater required for SNPmatch")
   parser.set_defaults(func=snpmatch_parser)
+  pairparser = subparsers.add_parser('pairsnp', help="pairwise comparison of two snp files")
+  pairparser.add_argument("-i", "--input_file_1", dest="inFile_1", help="VCF/BED file for the variants in the sample one")
+  pairparser.add_argument("-j", "--input_file_2", dest="inFile_2", help="VCF/BED file for the variants in the sample two")
+  pairparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
+  pairparser.add_argument("-o", "--output", dest="outFile", help="output json file")
+  pairparser.set_defaults(func=snpmatch_paircomparions)
   return inOptions
 
 def checkARGs(args):
@@ -88,10 +94,6 @@ def snpmatch_inbred(args):
 
 def snpmatch_cross(args):
   checkARGs(args)
-  if not args['outFile']:
-    die("specify an output file")
-  if not args['scoreFile']:
-    die("specify an output file for scores")
   csmatch.potatoCrossIdentifier(args)
 
 def snpmatch_parser(args):
@@ -109,6 +111,17 @@ def genotype_cross(args):
   if not args['parents']:
     die("parents not specified")
   csmatch.crossGenotyper(args)
+
+def snpmatch_paircomparions(args):
+    if not args['inFile_1']:
+        die("input file one not specified")
+    if not os.path.isfile(args['inFile_1']):
+        die("input file one does not exist: " + args['inFile_1'])
+    if not args['inFile_2']:
+        die("input file two not specified")
+    if not os.path.isfile(args['inFile_2']):
+        die("input file two does not exist: " + args['inFile_2'])
+    snpmatch.pairwiseScore(args['inFile_1'], args['inFile_2'], args['logDebug'], args['outFile'])
 
 def main():
   ''' Command line options '''

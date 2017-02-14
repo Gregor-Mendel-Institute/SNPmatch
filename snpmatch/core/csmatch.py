@@ -163,6 +163,8 @@ def crossInterpreter(GenotypeData, binLen, outID):
 def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, GenotypeData_acc, outID):
   ## Get tophit accessions
   # sorting based on the final scores
+  if not outID:
+      outID = "cross.identifier"
   outFile = outID + '.windowscore.txt'
   scoreFile = outID + '.scores.txt'
   NumSNPs = len(snpCHR)
@@ -203,7 +205,7 @@ def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, Genoty
     Accessions = np.append(Accessions, acc)
   log.info("writing output!")
   snpmatch.print_out_table(scoreFile, Accessions, ScoreList, NumInfoSites, NumMatSNPs, DPmean)
-  crossInterpreter(GenotypeData, binLen, outFile, scoreFile)
+  crossInterpreter(GenotypeData, binLen, outID)
 
 def potatoCrossIdentifier(args):
   (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = snpmatch.parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
