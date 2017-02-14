@@ -6,9 +6,9 @@ SNPmatch is a python toolkit which can be used to genotype a sample from as-low-
 
 The below steps deal with running SNPmatch on a local machine.
 
-### Using pip: 
+### Using pip:
 
-```bash 
+```bash
 pip install -e git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git
 ## or just
 pip install SNPmatch
@@ -20,7 +20,7 @@ The SNPmatch uses various python packages (numpy, pandas, pygwas, vcfnp). The ma
 
 ### Input files
 
-Database SNPs need to be formatted as HDF5 file using pygwas. Currently, SNPmatch takes two file formats, BED and VCF for sample markers. Example input files are given in sample_files folder in git repo. 
+Database SNPs need to be formatted as HDF5 file using pygwas. Currently, SNPmatch takes two file formats, BED and VCF for sample markers. Example input files are given in sample_files folder in git repo.
 Briefly, BED files should be three tab-separated column with chr, position and genotype given below.
 
 ```
@@ -48,7 +48,7 @@ SNPmatch can be run as bash commands given below. A detailed manual for each com
 snpmatch inbred -i input_file -d db.hdf5 -e db.acc.hdf5 -o output_file
 snpmatch cross -i input_file -d db.hdf5 -e db.acc.hdf5 -o output_file -s score_file
 # the SNPmatch parser
-snpmatch parser -i intput_file -o output_npz 
+snpmatch parser -i intput_file -o output_npz
 ```
 
 
@@ -67,11 +67,12 @@ SNPmatch can be run directly for A. thaliana researchers as a web tool, [AraGeno
 ## History
 
 - 1.7.2: Stable version, 15-12-2016
+- 1.8.1: Stable version, 14-02-2017
 
 
 ## Credits
 
-- Rahul Pisupati (rahul.pisupati[at]gmi.oeaw.ac.at) 
+- Rahul Pisupati (rahul.pisupati[at]gmi.oeaw.ac.at)
 - Ümit Seren (uemit.seren[at]gmi.oeaw.ac.at)
 
 ## Citation
