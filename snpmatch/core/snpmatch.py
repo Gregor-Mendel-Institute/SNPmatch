@@ -158,6 +158,11 @@ def readVcf(inFile, logDebug):
     snpWEI[np.where(snpBinary != 2),1] = 0
   return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
 
+def getHeterozygosity(snpGT):
+    snpBinary = parseGT(snpGT)
+    numHets = len(np.where(snpBinary == 2)[0])
+    return float(numHets)/len(snpGT)
+
 def parseInput(inFile, logDebug, outFile = "parser"):
   if outFile == "parser" or not outFile:
     outFile = inFile + ".snpmatch"
@@ -191,6 +196,7 @@ def parseInput(inFile, logDebug, outFile = "parser"):
       snpst = np.unique(snpCHR, return_counts=True)
       snpdict = dict(('Chr%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
       statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": DPmean}
+      statdict['percent_heterozygosity'] = getHeterozygosity(snpGT)
       with open(outFile + ".stats.json", "w") as out_stats:
         out_stats.write(json.dumps(statdict))
   log.info("done!")

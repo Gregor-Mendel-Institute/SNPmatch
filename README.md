@@ -67,7 +67,7 @@ SNPmatch can be run directly for A. thaliana researchers as a web tool, [AraGeno
 ## History
 
 - 1.7.2: Stable version, 15-12-2016
-- 1.8.1: Stable version, 14-02-2017
+- 1.8.2: Stable version, 16-02-2017
 
 
 ## Credits
