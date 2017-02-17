@@ -158,9 +158,15 @@ def readVcf(inFile, logDebug):
     snpWEI[np.where(snpBinary != 2),1] = 0
   return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
 
-def getHeterozygosity(snpGT):
+def getHeterozygosity(snpGT, outFile='default'):
     snpBinary = parseGT(snpGT)
     numHets = len(np.where(snpBinary == 2)[0])
+    if outFile != 'default':
+        with open(outFile) as json_out:
+            topHitsDict = json.load(json_out)
+        topHitsDict['percent_heterozygosity'] = float(numHets)/len(snpGT)
+        with open(outFile, "w") as out_stats:
+          out_stats.write(json.dumps(topHitsDict))
     return float(numHets)/len(snpGT)
 
 def parseInput(inFile, logDebug, outFile = "parser"):
@@ -202,7 +208,7 @@ def parseInput(inFile, logDebug, outFile = "parser"):
   log.info("done!")
   return (snpCHR, snpPOS, snpGT, snpWEI, DPmean)
 
-def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
+def genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
   NumSNPs = len(snpCHR)
   log.info("loading database files")
   GenotypeData = genotype.load_hdf5_genotype_data(hdf5File)
@@ -212,6 +218,7 @@ def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
   ScoreList = np.zeros(num_lines, dtype="float")
   NumInfoSites = np.zeros(len(GenotypeData.accessions), dtype="uint32")
   NumMatSNPs = 0
+  overlappedInds = np.zeros(0, dtype=int)
   chunk_size = 1000
   for i in np.array(GenotypeData.chrs, dtype=int):
     perchrTarPos = np.where(snpCHR == i)[0]
@@ -226,6 +233,7 @@ def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
     TarGTs0 = np.zeros(len(matchedTarInd), dtype="int8")
     TarGTs1 = np.ones(len(matchedTarInd), dtype="int8") + 1
     TarGTs2 = np.ones(len(matchedTarInd), dtype="int8")
+    overlappedInds = np.append(overlappedInds, perchrTarPos[matchedTarInd])
     NumMatSNPs = NumMatSNPs + len(matchedAccInd)
     for j in range(0, len(matchedAccInd), chunk_size):
       t1001SNPs = GenotypeData.snps[matchedAccInd[j:j+chunk_size],:]
@@ -247,12 +255,13 @@ def genotyper(snpCHR, snpPOS, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
   if not outFile:
     outFile = "genotyper"
   print_topHits(outFile + ".matches.json", GenotypeData.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs)
+  getHeterozygosity(snpGT[overlappedInds], outFile + ".matches.json")
   return (ScoreList, NumInfoSites)
 
 def potatoGenotyper(args):
   (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
   log.info("running genotyper!")
-  (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])
+  (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])
   log.info("finished!")
 
 def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
