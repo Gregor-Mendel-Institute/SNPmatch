@@ -1,5 +1,5 @@
 """
-  SNPmatch for crosses (F2s and F3s)
+  SNPmatch for crosses
 """
 import numpy as np
 import numpy.ma

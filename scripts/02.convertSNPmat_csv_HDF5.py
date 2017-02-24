@@ -47,7 +47,6 @@ logging.info("Saving binary CSV file into HDF5 file chunked rowwise")
 GenotypeData.save_as_hdf5(options.hdf5File)
 logging.info("Done writing the HDF5 file chunked row wise")
 
-#logging.info("Saving binary CSV file into HDF5 file chunked accession wise")
-#save_as_hdf5_acc(GenotypeData, options.hdf5accFile)
-#logging.info("Done writing!!")
-
+logging.info("Saving binary CSV file into HDF5 file chunked accession wise")
+save_as_hdf5_acc(GenotypeData, options.hdf5accFile)
+logging.info("Done writing!!")
