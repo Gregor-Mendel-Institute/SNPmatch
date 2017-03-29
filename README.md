@@ -18,9 +18,12 @@ pip install SNPmatch
 
 The SNPmatch uses various python packages (numpy, pandas, pygwas, vcfnp). The main SNP database should be a HDF5 file with specific keys. Mainly read using pygwas package.
 
+Database SNPs for the Regmap and 1001genomes dataset can be downloaded [here](https://gmioncloud-my.sharepoint.com/personal/uemit_seren_gmi_oeaw_ac_at/_layouts/15/guestaccess.aspx?folderid=0ca806e676c154094992a9e89e5341d43&authkey=AXJPl6GkD8vNPDZJwheb6uk)
+
 ### Input files
 
-Database SNPs need to be formatted as HDF5 file using pygwas. Currently, SNPmatch takes two file formats, BED and VCF for sample markers. Example input files are given in sample_files folder in git repo.
+Database SNPs need to be formatted as HDF5 file using pygwas or download the existing ones above. 
+Currently, SNPmatch takes two file formats, BED and VCF for sample markers. Example input files are given in sample_files folder in git repo.
 Briefly, BED files should be three tab-separated column with chr, position and genotype given below.
 
 ```
