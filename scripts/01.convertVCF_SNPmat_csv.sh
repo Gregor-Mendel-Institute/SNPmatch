@@ -10,48 +10,34 @@
 
 
 cd $PBS_O_WORKDIR
-inFile=`ls 1163g.179kB.prior15.gauss4.ts99.5.BIALLELIC.vcf | sed 's/\.vcf$//' `
 
 # Convert VCF file into hetfiltered CSV file
 
+module load BCFtools/1.3-foss-2015b
+
 echo "Starting to convert a gVCF to binary CSV file"
-grep -v "^##" ${inFile}.vcf | cut -f 1,2,10- | sed 's/^Chr//' | awk ' {for (i = 3; i <= NF; i++)
-if(substr($i,0,3) == "0/0")
-$i = 0
-else if (substr($i, 0,3) == "1/1")
-$i = 1
-else if(substr($i, 0,3) == "1/0" || substr($i, 0,3) == "0/1")
-$i = -1
-else if(substr($i,0,3) == "./.")
-$i = -1
-print $0}' OFS=',' |sed 's/\t/,/g' | sed 's/^#CHROM,POS/Chromosome,Position/' > $inFile.hetfiltered.csv
+
+inFile=`ls *vcf | head -n 1 | sed 's/\.vcf$//'`
+grep -m 1 "^#CHROM" ${inFile}.vcf | cut -f 1,2,10- | sed 's/\t/,/g' | sed 's/^#CHROM,POS/Chromosome,Position/' > ${inFile}.csv
+#bcftools query -f "%CHROM\t%POS[\t%GT]\n" ${inFile}.vcf | sed 's/\b0\/0/0/g' | sed 's/\b1\/1\b/1/g' | sed 's/\b0\/1\b/2/g' | sed 's/\.\/\./-1/g' | sed 's/\t/,/g'  >> ${inFile}.csv
+bcftools query -f "%CHROM,%POS[,%GT]\n" ${inFile}.vcf | sed 's/0\/0/0/g' | sed 's/1\/1/1/g' | sed 's/0\/1/2/g' | sed 's/\.\/\./-1/g' >> ${inFile}.csv
 
 
 ## For the compressed vcf file
+#inFile=`ls *vcf.gz | head -n 1 | sed 's/\.vcf\.gz$//'`
+#zgrep -m 1 "^#CHROM" ${inFile}.vcf.gz | cut -f 1,2,10- | sed 's/\t/,/g' | sed 's/^#CHROM,POS/Chromosome,Position/' > ${inFile}.csv
+#bcftools query -f "%CHROM\t%POS[\t%GT]\n" ${inFile}.vcf.gz | sed 's/\b0\/0/0/g' | sed 's/\b1\/1\b/1/g' | sed 's/\b0\/1\b/2/g' | sed 's/\.\/\./-1/g' | sed 's/\t/,/g'  >> ${inFile}.csv
 
-(zgrep -m 1 "^#CHROM" 1135g_SNP_BIALLELIC.vcf.gz | cut -f 1,2,10- && zgrep -v "^#" 1135g_SNP_BIALLELIC.vcf.gz | cut -f 1,2,10- | sed 's/^Chr//' | awk ' {for (i = 3; i <= NF; i++)
-if(substr($i,1,3) ~ /0.0/)
-$i = 0
-else if (substr($i,1,3) ~ /1.1/)
-$i = 1
-else if(substr($i,1,3) ~ /1.0/ || substr($i, 1,3) ~ /0.1/)
-$i = 2
-else if(substr($i,1,3) ~ /\..\./)
-$i = -1
-print $0}' OFS=',' ) | sed 's/\t/,/g' | sed 's/^#CHROM,POS/Chromosome,Position/' > 1135g_SNP_BIALLELIC.SNPmatrix_11-Dec-2015.csv
-
-
-#grep -v "^##" ${inFile}.vcf | cut -f 1,2,10- | sed 's/^Chr//' | awk '{for (i = 3; i <= NF; i++)
-#if(substr($i,1,3) == "0/0")
+#(zgrep -m 1 "^#CHROM" 1135g_SNP_BIALLELIC.vcf.gz | cut -f 1,2,10- && zgrep -v "^#" 1135g_SNP_BIALLELIC.vcf.gz | cut -f 1,2,10- | sed 's/^Chr//' | awk ' {for (i = 3; i <= NF; i++)
+#if(substr($i,1,3) ~ /0.0/)
 #$i = 0
-#else if (substr($i, 1,3) == "1/1")
+#else if (substr($i,1,3) ~ /1.1/)
 #$i = 1
-#else if(substr($i, 1,3) == "1/0" || substr($i, 1,3) == "0/1")
+#else if(substr($i,1,3) ~ /1.0/ || substr($i, 1,3) ~ /0.1/)
+#$i = 2
+#else if(substr($i,1,3) ~ /\..\./)
 #$i = -1
-#else if(substr($i,1,3) == "./.")
-#$i = -2
-#print $0}' OFS=',' |sed 's/\t/,/g' | sed 's/^#CHROM,POS/Chromosome,Position/' > ${inFile}.csv
-## Done with awk
+#print $0}' OFS=',' ) | sed 's/\t/,/g' | sed 's/^#CHROM,POS/Chromosome,Position/' > 1135g_SNP_BIALLELIC.SNPmatrix_11-Dec-2015.csv
 
 echo "Saving as HDF5 files"
 
@@ -60,4 +46,4 @@ module load numpy
 module use /net/gmi.oeaw.ac.at/software/shared/nordborg_common/modulefiles/
 module load pygwas
 
-python ./scripts/02.convertSNPmat_csv_HDF5.py -c $inFile.hetfiltered.csv -d $inFile.hetfiltered.hdf5 -e $inFile.hetfiltered.acc.hdf5
+python ./scripts/02.convertSNPmat_csv_HDF5.py -c $inFile.csv -d $inFile.hdf5 -e $inFile.acc.hdf5

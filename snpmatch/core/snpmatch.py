@@ -97,16 +97,21 @@ def parseGT(snpGT):
   snpBinary = np.zeros(len(snpGT), dtype = "int8")
   if first.find('|') != -1:
     ## GT is phased
-    snpBinary[np.where(snpGT == "1|1")[0]] = 1
-    snpBinary[np.where(snpGT == "0|1")[0]] = 2
+    separator = "|"
   elif first.find('/') != -1:
     ## GT is not phased
-    snpBinary[np.where(snpGT == "1/1")[0]] = 1
-    snpBinary[np.where(snpGT == "0/1")[0]] = 2
+    separator = "/"
   elif np.char.isdigit(first):
-    snpBinary = np.array(np.copy(snpGT), dtype = "int8")
+    return np.array(np.copy(snpGT), dtype = "int8")
   else:
     die("unable to parse the format of GT in vcf!")
+  hetGT = "0" + separator + "1"
+  refGT = "0" + separator + "0"
+  altGT = "1" + separator + "1"
+  nocall = "." + separator + "."
+  snpBinary[np.where(snpGT == altGT)[0]] = 1
+  snpBinary[np.where(snpGT == hetGT)[0]] = 2
+  snpBinary[np.where(snpGT == nocall)[0]] = -1
   return snpBinary
 
 def readBED(inFile, logDebug):
