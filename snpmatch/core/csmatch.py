@@ -232,21 +232,22 @@ def potatoCrossIdentifier(args):
   crossIdentifier(args['binLen'],snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, GenotypeData_acc, args['outFile'])
   log.info("finished!")
 
-def getWindowGenotype(matchedP1, totalMarkers, effect = 0.2, pval_thres = 0.05):
+def getWindowGenotype(matchedP1, totalMarkers, lr_thres = 2.706):
+    ### Choose lr_thres as 2.706 which is at 0.1 alpha level with 1 degree of freedom
     pval = 'NA'
     geno = 'NA'
     if totalMarkers > 0:
-        fraction = float(matchedP1) / totalMarkers
-        pval = st.binom_test(matchedP1, totalMarkers, 0.5)
-        if pval < pval_thres:
-            if fraction - 0.5 >= effect:
+        likelihood = snpmatch.calculate_likelihoods([matchedP1, totalMarkers - matchedP1], [totalMarkers, totalMarkers])
+        if np.max(likelihood[1]) > lr_thres:
+            if likelihood[1][0] == 1:
                 geno = 0
-            elif 0.5 - fraction >= effect:
+                pval = likelihood[1][1]
+            elif likelihood[1][1] == 1:
                 geno = 1
-            else:
-                geno = 0.5
+                pval = likelihood[1][0]
         else:
             geno = 0.5
+            pval = np.max(likelihood[1])
     return (geno, pval)
 
 def crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, inFile, binLen, outFile, logDebug = True):
