@@ -57,6 +57,7 @@ def get_options(program_license,program_version_message):
   genocross_parser.add_argument("-i", "--input_file", dest="inFile", help="VCF file for the variants in the sample")
   genocross_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
   genocross_parser.add_argument("-p", "--parents", dest="parents", help="Parents for the cross, parent1 x parent2")
+  genocross_parser.add_argument("-q", "--father", dest="father", help="If given this should be VCF file for the mother (ex., if the cross is parent1 x parent2, parent2.vcf should be the input file. Also -p should be parent1.vcf")
   genocross_parser.add_argument("-b", "--binLength", dest="binLen", help="bin length", default=200000)
   genocross_parser.add_argument("-o", "--output", dest="outFile", help="output file")
   genocross_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")

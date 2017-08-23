@@ -4,7 +4,7 @@ SNPmatch is a python toolkit which can be used to genotype a sample from as-low-
 
 ## Installation & Usage
 
-The below steps deal with running SNPmatch on a local machine.
+The below steps deal with running SNPmatch on a local machine. This was also tested in Python 3.
 
 ### Using pip:
 
@@ -16,7 +16,7 @@ pip install SNPmatch
 
 ### Requirements
 
-The SNPmatch uses various python packages (numpy, pandas, pygwas, vcfnp). The SNP database should be a HDF5 file cane be generated with the scripts given in the scripts [folder](https://github.com/Gregor-Mendel-Institute/SNPmatch/tree/master/scripts). This is read using pygwas package. Database SNPs for the Regmap and 1001genomes dataset for *Arabidopsis thaliana* can be downloaded [here](https://gmioncloud-my.sharepoint.com/personal/uemit_seren_gmi_oeaw_ac_at/_layouts/15/guestaccess.aspx?folderid=0ca806e676c154094992a9e89e5341d43&authkey=AXJPl6GkD8vNPDZJwheb6uk).
+The SNPmatch uses various python packages (Cython, numpy, pandas, pygwas, vcfnp). The SNP database should be a HDF5 file can be generated with the scripts given in the scripts [folder](https://github.com/Gregor-Mendel-Institute/SNPmatch/tree/master/scripts). This is read using pygwas package. Database SNPs for the Regmap and 1001genomes dataset for *Arabidopsis thaliana* can be downloaded [here](https://gmioncloud-my.sharepoint.com/personal/uemit_seren_gmi_oeaw_ac_at/_layouts/15/guestaccess.aspx?folderid=0ca806e676c154094992a9e89e5341d43&authkey=AXJPl6GkD8vNPDZJwheb6uk).
 
 ### Input files
 

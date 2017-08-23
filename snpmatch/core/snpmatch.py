@@ -114,14 +114,18 @@ def parseGT(snpGT):
   snpBinary[np.where(snpGT == nocall)[0]] = -1
   return snpBinary
 
+def parseChrName(targetCHR):
+    snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetCHR, dtype="string")), "chr", "")
+    snpsREQ = np.where(np.char.isdigit(snpCHROM))[0]   ## Filtering positions from mitochondrial and chloroplast
+    snpCHR = snpCHROM[snpsREQ]
+    return (snpCHR, snpsREQ)
+
 def readBED(inFile, logDebug):
   log.info("reading the position file")
   targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
-  snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetSNPs[0], dtype="string")), "chr", "")
-  snpREQ = np.where(np.char.isdigit(snpCHROM))[0]
-  snpCHR = np.array(snpCHROM[snpREQ]).astype("int8")
-  snpPOS = np.array(targetSNPs[1], dtype=int)[snpREQ]
-  snpGT = np.array(targetSNPs[2])[snpREQ]
+  (snpCHR, snpsREQ) = parseChrName(targetSNPs[0])
+  snpPOS = np.array(targetSNPs[1], dtype=int)[snpsREQ]
+  snpGT = np.array(targetSNPs[2])[snpsREQ]
   snpBinary = parseGT(snpGT)
   snpWEI = np.ones((len(snpCHR), 3))  ## for homo and het
   snpWEI[np.where(snpBinary != 0),0] = 0
@@ -141,9 +145,7 @@ def readVcf(inFile, logDebug):
     sys.stderr = sys.__stderr__
   DPthres = np.mean(vcfD.DP[np.where(vcfD.DP > 0)[0]]) * 4
   DPmean = DPthres / 4
-  snpCHROM = np.char.replace(np.core.defchararray.lower(vcf.CHROM), "chr", "")  ## Should take care of all possible chr names
-  snpsREQ = np.where((vcfD.is_called[:,0]) & (vcf.QUAL > 30) & (vcf.DP > 0) & (vcf.DP < DPthres) & (np.char.isdigit(snpCHROM)))[0]
-  snpCHR = np.array(snpCHROM[snpsREQ]).astype("int8")
+  (snpCHR, snpsREQ) = parseChrName(vcf.CHROM)
   snpPOS = np.array(vcf.POS[snpsREQ])
   try:
     snpGT = np.array(vcfD.GT[snpsREQ,0])
@@ -225,7 +227,7 @@ def genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, hdf5File, hdf5accFile, outF
   NumMatSNPs = 0
   overlappedInds = np.zeros(0, dtype=int)
   chunk_size = 1000
-  for i in np.array(GenotypeData.chrs, dtype=int):
+  for i in parseChrName(GenotypeData.chrs):
     perchrTarPos = np.where(snpCHR == i)[0]
     perchrtarSNPpos = snpPOS[perchrTarPos]
     log.info("Analysing chromosome %s positions", i)
