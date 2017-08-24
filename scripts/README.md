@@ -1,10 +1,8 @@
+# Converting VCF file to HDF5 database files
 
+The scripts given in this folder can be used to convert a joint VCF file into a HDF5 database file. These files are later used in SNPmatch analysis.
 
-# README for converting VCF file to HDF5 database file
-
-The scripts given in this folder can be used to convert a joint VCF file into a HDF5 database file. These files are later used for genotyping oterh samples using SNPmatch.
-
-# Dependencies for these scripts
+## Dependencies for the scripts
 
 These are tested and work on Linux based systems only.
 
@@ -16,7 +14,7 @@ These are tested and work on Linux based systems only.
 6) pygwas
 
 
-# Input files and usage
+## Input files and Usage
 
 The input file is a VCF file which can be read through bcftools. The script generates couple of files as output.
 
@@ -24,6 +22,9 @@ The input file is a VCF file which can be read through bcftools. The script gene
 bash ./01.convertVCF_SNPmat_csv.sh input_file output_file_id
 ```
 
-Given the above command it generates files output_file_id.csv, output_file_id.hdf5 and output_file_id.acc.hdf5
+With the above command it generates three files
+1) output_file_id.csv
+2) output_file_id.hdf5
+3) output_file_id.acc.hdf5
 
-The two hdf5 files have the same information but chunked in a different way for efficient readability.
+The two hdf5 files have the same information but chunked in a different way for efficiency. Both of these are required for running SNPmatch in -d and -e options respectively.

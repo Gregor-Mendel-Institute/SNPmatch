@@ -8,9 +8,13 @@ The below steps deal with running SNPmatch on a local machine. This was also tes
 
 ### Using pip:
 
+First we need to install Cython before installing SNPmatch.
+
 ```bash
+pip install Cython
+## installing SNPmatch
 pip install -e git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git
-## or just
+## or from git hub repository
 pip install SNPmatch
 ```
 
@@ -66,6 +70,18 @@ SNPmatch can be run directly for *A. thaliana* researchers as a web tool, [AraGe
 4. Push to the branch: `git push origin my-new-feature`
 5. Submit a pull request :D
 
+
+## Genotyping a hybrid
+
+SNPmatch can be used to identify hybrid individuals when parental strains are present in database. For such individuals, SNPmatch can be run in windows across the genome. The commands used to run are given below
+
+```bash
+snpmatch cross -d db.hdf5 -e db.acc.hdf5 -i input_file -b window_size_in_bp -o output_file
+#to get a genetic map for the hybrid
+snpmatch genotype_cross -e db.acc.hdf5 -p parent1xparent2 -i input_file -o output_file
+```
+
+This can also be implemented to other species by replacing the global variable (chrlen) in [csmatch script](https://github.com/Gregor-Mendel-Institute/SNPmatch/blob/master/snpmatch/core/csmatch.py) line 19. The variable (chrlen) denotes the chromosome length for the species, in this case *A. thaliana*.
 
 ## History
 
