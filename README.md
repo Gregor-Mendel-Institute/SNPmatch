@@ -16,7 +16,9 @@ pip install SNPmatch
 
 ### Requirements
 
-The SNPmatch uses various python packages (Cython, numpy, pandas, pygwas, vcfnp). The SNP database should be a HDF5 file can be generated with the scripts given in the scripts [folder](https://github.com/Gregor-Mendel-Institute/SNPmatch/tree/master/scripts). This is read using pygwas package. Database SNPs for the Regmap and 1001genomes dataset for *Arabidopsis thaliana* can be downloaded [here](https://gmioncloud-my.sharepoint.com/personal/uemit_seren_gmi_oeaw_ac_at/_layouts/15/guestaccess.aspx?folderid=0ca806e676c154094992a9e89e5341d43&authkey=AXJPl6GkD8vNPDZJwheb6uk).
+The SNPmatch uses various python packages (Cython, numpy, pandas, [PyGWAS](https://github.com/timeu/PyGWAS), vcfnp). The SNP database should be a HDF5 file can be generated with the scripts given in the scripts [folder](https://github.com/Gregor-Mendel-Institute/SNPmatch/tree/master/scripts).
+
+This is read using pygwas package. Database SNPs for the Regmap and 1001genomes dataset for *Arabidopsis thaliana* can be downloaded [here](https://gmioncloud-my.sharepoint.com/personal/uemit_seren_gmi_oeaw_ac_at/_layouts/15/guestaccess.aspx?folderid=0ca806e676c154094992a9e89e5341d43&authkey=AXJPl6GkD8vNPDZJwheb6uk).
 
 ### Input files
 
@@ -69,7 +71,7 @@ SNPmatch can be run directly for *A. thaliana* researchers as a web tool, [AraGe
 
 - 1.7.2: Stable version, 15-12-2016
 - 1.8.2: Stable version, 16-02-2017
-- 1.9: Stable version, 23-08-2017
+- 1.9.1: Stable version, 24-08-2017
 
 
 ## Credits
