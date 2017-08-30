@@ -227,12 +227,12 @@ def genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, hdf5File, hdf5accFile, outF
   NumMatSNPs = 0
   overlappedInds = np.zeros(0, dtype=int)
   chunk_size = 1000
-  for i in parseChrName(GenotypeData.chrs):
-    perchrTarPos = np.where(snpCHR == i)[0]
+  for ind,echr in enumerate(parseChrName(GenotypeData.chrs)[0]):
+    perchrTarPos = np.where(snpCHR == echr)[0]
     perchrtarSNPpos = snpPOS[perchrTarPos]
-    log.info("Analysing chromosome %s positions", i)
-    start = GenotypeData.chr_regions[i-1][0]
-    end = GenotypeData.chr_regions[i-1][1]
+    log.info("Analysing positions in chromosome %s", echr)
+    start = GenotypeData.chr_regions[ind][0]
+    end = GenotypeData.chr_regions[ind][1]
     chrpositions = GenotypeData.positions[start:end]
     matchedAccInd = np.where(np.in1d(chrpositions, perchrtarSNPpos))[0] + start
     matchedTarInd = np.where(np.in1d(perchrtarSNPpos, chrpositions))[0]

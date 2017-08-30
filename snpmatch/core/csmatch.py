@@ -197,11 +197,11 @@ def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, Genoty
     score = 0
     numinfo = 0
     NumMatSNPs = 0
-    for c in snpmatch.parseChrName(GenotypeData.chrs):
-      perchrTarPos = np.where(snpCHR == c)[0]
+    for ind,echr in enumerate(snpmatch.parseChrName(GenotypeData.chrs)[0]):
+      perchrTarPos = np.where(snpCHR == echr)[0]
       perchrtarSNPpos = snpPOS[perchrTarPos]
-      start = GenotypeData.chr_regions[c-1][0]
-      end = GenotypeData.chr_regions[c-1][1]
+      start = GenotypeData.chr_regions[ind][0]
+      end = GenotypeData.chr_regions[ind][1]
       chrpositions = GenotypeData.positions[start:end]
       matchedAccInd = np.where(np.in1d(chrpositions, perchrtarSNPpos))[0] + start
       matchedTarInd = np.where(np.in1d(perchrtarSNPpos, chrpositions))[0]
