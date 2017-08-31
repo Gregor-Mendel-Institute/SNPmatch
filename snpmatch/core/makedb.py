@@ -30,7 +30,7 @@ def getSamples(inVCF):
     samples = np.array(info[9:])
     return samples
 
-def getCSV(inVCF, outFile, phased = False):
+def getCSV(inVCF, outFile, bcfpath = ''):
     outcsv = open(outFile, "w")
     samples = getSamples(inVCF)
     outcsv.write('Chromosome,Position')
@@ -39,7 +39,10 @@ def getCSV(inVCF, outFile, phased = False):
     outcsv.write('\n')
     outcsv.truncate()
     log.info('running bcftools!')
-    bcftool_command = "bcftools query -f \"%CHROM,%POS[,%GT]\n\" " + inVCF
+    if bcfpath == '':
+        bcftool_command = "bcftools query -f \"%CHROM,%POS[,%GT]\n\" " + inVCF
+    else:
+        bcftool_command = bcfpath + '/' + "bcftools query -f \"%CHROM,%POS[,%GT]\n\" " + inVCF
     sed_command = "| sed 's/,0[\/|]0/,0/g' | sed 's/,1[\/|]1/,1/g' | sed 's/,0[\/|]1/,2/g' | sed 's/,\.[\/|]\./,-1/g'"
     full_command = bcftool_command + sed_command
     convertcsv = Popen(full_command, shell=True, stdout = outcsv)
@@ -77,7 +80,7 @@ def makeHDF5s(csvFile, outFile):
 
 def makedb_from_vcf(args):
     log.info("converting VCF to CSV")
-    getCSV(args['inFile'], args['db_id'] + '.csv')
+    getCSV(args['inFile'], args['db_id'] + '.csv', args['bcfpath'])
     log.info("converting CSV to hdf5!")
     makeHDF5s(args['db_id'] + '.csv', args['db_id'])
     log.info('done!')

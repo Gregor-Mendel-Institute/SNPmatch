@@ -76,6 +76,7 @@ def get_options(program_license,program_version_message):
   pairparser.set_defaults(func=snpmatch_paircomparions)
   makedbparser = subparsers.add_parser('makedb', help="Create database files from given VCF, only give biallelic SNPs")
   makedbparser.add_argument("-i", "--input_vcf", dest="inFile", help="input VCF file for the known strains.")
+  makedbparser.add_argument("-p", "--bcftools_path", dest="bcfpath", help="path to the bcftools executable. Not necessary if present in BASH PATH", default='')
   makedbparser.add_argument("-o", "--out_db_id", dest="db_id", help="output id for database files")
   makedbparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   makedbparser.set_defaults(func=makedb_vcf_to_hdf5)
