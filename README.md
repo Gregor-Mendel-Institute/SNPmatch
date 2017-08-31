@@ -25,8 +25,20 @@ pip install SNPmatch
 
 ### Database files
 
-Database files containing the known genotype information for many strains have to be provided as HDF5 formatted file. These can be generated with given markers or variants present in a VCF file. The database files can be generated with the help scripts given in the git [folder](https://github.com/Gregor-Mendel-Institute/SNPmatch/tree/master/scripts). A detailed README is also provided in the folder.
-These files are read using PyGWAS package. So we recommend you to generate files as mentioned.
+Database files containing the known genotype information for many strains have to be provided as HDF5 formatted file. These can be generated with given markers or variants present in a VCF file. The database files can be generated with the functions given in SNPmatch. They are generated using the commands given below.
+
+These commands require BCFtools executable in the path. These files are read using PyGWAS package. So the VCF files need to have biallelic SNPs only for now.
+
+```bash
+snpmatch makedb -i input_database.vcf -o db
+```
+
+The above command generates three files.
+  * db.csv
+  * db.hdf5
+  * db.acc.hdf5
+
+The two hdf5 files are the main database files for further analysis. The files have the same information but are chunked for better efficiency. The files db.hdf5 and db.acc.hdf5 are given to the SNPmatch command under -d and -e options respectively.
 
 For *Arabidopsis thaliana* users, we have made SNP database files for the `RegMap` and `1001Genomes` panel available and can be downloaded [here](https://gmioncloud-my.sharepoint.com/personal/uemit_seren_gmi_oeaw_ac_at/_layouts/15/guestaccess.aspx?folderid=0ca806e676c154094992a9e89e5341d43&authkey=AXJPl6GkD8vNPDZJwheb6uk).
 
