@@ -93,26 +93,26 @@ def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs
     out_stats.write(json.dumps(topHitsDict))
 
 def parseGT(snpGT):
-  first = snpGT[0]
-  snpBinary = np.zeros(len(snpGT), dtype = "int8")
-  if first.find('|') != -1:
-    ## GT is phased
-    separator = "|"
-  elif first.find('/') != -1:
-    ## GT is not phased
-    separator = "/"
-  elif np.char.isdigit(first):
-    return np.array(np.copy(snpGT), dtype = "int8")
-  else:
-    die("unable to parse the format of GT in vcf!")
-  hetGT = "0" + separator + "1"
-  refGT = "0" + separator + "0"
-  altGT = "1" + separator + "1"
-  nocall = "." + separator + "."
-  snpBinary[np.where(snpGT == altGT)[0]] = 1
-  snpBinary[np.where(snpGT == hetGT)[0]] = 2
-  snpBinary[np.where(snpGT == nocall)[0]] = -1
-  return snpBinary
+    first = snpGT[0]
+    snpBinary = np.zeros(len(snpGT), dtype = "int8")
+    if first.find('|') != -1:
+        ## GT is phased
+        separator = "|"
+    elif first.find('/') != -1:
+        ## GT is not phased
+        separator = "/"
+    elif np.char.isdigit(first):
+        return np.array(np.copy(snpGT), dtype = "int8")
+    else:
+        die("unable to parse the format of GT in vcf!")
+    hetGT = "0" + separator + "1"
+    refGT = "0" + separator + "0"
+    altGT = "1" + separator + "1"
+    nocall = "." + separator + "."
+    snpBinary[np.where(snpGT == altGT)[0]] = 1
+    snpBinary[np.where(snpGT == hetGT)[0]] = 2
+    snpBinary[np.where(snpGT == nocall)[0]] = -1
+    return snpBinary
 
 def parseChrName(targetCHR):
     snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetCHR, dtype="string")), "chr", "")
@@ -121,17 +121,17 @@ def parseChrName(targetCHR):
     return (snpCHR, snpsREQ)
 
 def readBED(inFile, logDebug):
-  log.info("reading the position file")
-  targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
-  (snpCHR, snpsREQ) = parseChrName(targetSNPs[0])
-  snpPOS = np.array(targetSNPs[1], dtype=int)[snpsREQ]
-  snpGT = np.array(targetSNPs[2])[snpsREQ]
-  snpBinary = parseGT(snpGT)
-  snpWEI = np.ones((len(snpCHR), 3))  ## for homo and het
-  snpWEI[np.where(snpBinary != 0),0] = 0
-  snpWEI[np.where(snpBinary != 1),2] = 0
-  snpWEI[np.where(snpBinary != 2),1] = 0
-  return (snpCHR, snpPOS, snpGT, snpWEI)
+    log.info("reading the position file")
+    targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
+    (snpCHR, snpsREQ) = parseChrName(targetSNPs[0])
+    snpPOS = np.array(targetSNPs[1], dtype=int)[snpsREQ]
+    snpGT = np.array(targetSNPs[2])[snpsREQ]
+    snpBinary = parseGT(snpGT)
+    snpWEI = np.ones((len(snpCHR), 3))  ## for homo and het
+    snpWEI[np.where(snpBinary != 0),0] = 0
+    snpWEI[np.where(snpBinary != 1),2] = 0
+    snpWEI[np.where(snpBinary != 2),1] = 0
+    return (snpCHR, snpPOS, snpGT, snpWEI)
 
 def readVcf(inFile, logDebug):
     log.info("reading the VCF file")
@@ -178,43 +178,43 @@ def getHeterozygosity(snpGT, outFile='default'):
     return float(numHets)/len(snpGT)
 
 def parseInput(inFile, logDebug, outFile = "parser"):
-  if outFile == "parser" or not outFile:
-    outFile = inFile + ".snpmatch"
-  if os.path.isfile(inFile + ".snpmatch.npz"):
-    log.info("snpmatch parser dump found! loading %s", inFile + ".snpmatch.npz")
-    snps = np.load(inFile + ".snpmatch.npz")
-    (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
-  else:
-    _,inType = os.path.splitext(inFile)
-    if inType == '.npz':
-      log.info("loading snpmatch parser file! %s", inFile)
-      snps = np.load(inFile)
-      (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
+    if outFile == "parser" or not outFile:
+        outFile = inFile + ".snpmatch"
+    if os.path.isfile(inFile + ".snpmatch.npz"):
+        log.info("snpmatch parser dump found! loading %s", inFile + ".snpmatch.npz")
+        snps = np.load(inFile + ".snpmatch.npz")
+        (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
     else:
-      if inType == '.vcf':
-        log.info("creating snpmatch parser dump %s", inFile + ".snpmatch.npz")
-        (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(inFile, logDebug)
-      elif inType == '.bed':
-        log.info("creating snpmatch parser dump %s", inFile + ".snpmatch.npz")
-        (snpCHR, snpPOS, snpGT, snpWEI) = readBED(inFile, logDebug)
-        DPmean = "NA"
-      else:
-        die("input file type %s not supported" % inType)
-      np.savez(outFile, chr = snpCHR, pos = snpPOS, gt = snpGT, wei = snpWEI, dp = DPmean)
-      NumSNPs = len(snpCHR)
-      case = 0
-      note = "Sufficient number of SNPs"
-      if NumSNPs < snp_thres:
-        note = "Attention: low number of SNPs provided"
-        case = 1
-      snpst = np.unique(snpCHR, return_counts=True)
-      snpdict = dict(('Chr%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
-      statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": DPmean}
-      statdict['percent_heterozygosity'] = getHeterozygosity(snpGT)
-      with open(outFile + ".stats.json", "w") as out_stats:
-        out_stats.write(json.dumps(statdict))
-  log.info("done!")
-  return (snpCHR, snpPOS, snpGT, snpWEI, DPmean)
+        _,inType = os.path.splitext(inFile)
+        if inType == '.npz':
+            log.info("loading snpmatch parser file! %s", inFile)
+            snps = np.load(inFile)
+            (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
+        else:
+            log.info('running snpmatch parser!')
+            if inType == '.vcf':
+                (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(inFile, logDebug)
+            elif inType == '.bed':
+                (snpCHR, snpPOS, snpGT, snpWEI) = readBED(inFile, logDebug)
+                DPmean = "NA"
+            else:
+                die("input file type %s not supported" % inType)
+            log.info("creating snpmatch parser file: %s", outFile)
+            np.savez(outFile, chr = snpCHR, pos = snpPOS, gt = snpGT, wei = snpWEI, dp = DPmean)
+            NumSNPs = len(snpCHR)
+            case = 0
+            note = "Sufficient number of SNPs"
+            if NumSNPs < snp_thres:
+                note = "Attention: low number of SNPs provided"
+                case = 1
+            snpst = np.unique(snpCHR, return_counts=True)
+            snpdict = dict(('Chr%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
+            statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": DPmean}
+            statdict['percent_heterozygosity'] = getHeterozygosity(snpGT)
+            with open(outFile + ".stats.json", "w") as out_stats:
+                out_stats.write(json.dumps(statdict))
+    log.info("done!")
+    return (snpCHR, snpPOS, snpGT, snpWEI, DPmean)
 
 def genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
   NumSNPs = len(snpCHR)
