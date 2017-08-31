@@ -10,7 +10,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='SNPmatch',
-    version='1.9.1',
+    version='1.9.2',
     description='A simple python library to identify the most likely strain given the SNPs for a sample',
     long_description=long_description,
     url='https://github.com/Gregor-Mendel-Institute/SNPmatch',
@@ -30,7 +30,7 @@ setup(
         "scipy >= 0.17.0",
         "numpy >=1.9.0",
         "PyGWAS",
-        "vcfnp",
+        "scikit-allel",
         "pandas"
     ],
     entry_points={

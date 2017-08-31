@@ -4,10 +4,10 @@ SNPmatch is a Python toolkit which can be used to genotype a sample from as-low-
 
 ## Installation & Usage
 
-The below steps deal with running SNPmatch on a local machine. This was also tested in Python 3.
+The below steps deal with running SNPmatch on a local machine. This package is only tested in Python 2.
 
 ### Dependencies
-The SNPmatch uses various python packages (Cython, numpy, pandas, [PyGWAS](https://github.com/timeu/PyGWAS), vcfnp). Most of which are automatically downloaded and installed with pip. Cython has to be installed before hand as given below.
+The SNPmatch uses various python packages (Cython, numpy, pandas, [PyGWAS](https://github.com/timeu/PyGWAS), scikit-allel). Most of which are automatically downloaded and installed with pip. Cython has to be installed before hand as given below.
 ```bash
 pip install Cython
 ```
@@ -104,7 +104,7 @@ These scripts are implemented based on the *A. thaliana* genome sizes. But the g
 
 - 1.7.2: Stable version, 15-12-2016
 - 1.8.2: Stable version, 16-02-2017
-- 1.9.1: Stable version, 24-08-2017
+- 1.9.2: Stable version, 24-08-2017
 
 
 ## Credits

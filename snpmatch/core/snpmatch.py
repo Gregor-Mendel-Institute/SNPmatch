@@ -4,7 +4,7 @@
 import numpy as np
 import numpy.ma
 from pygwas.core import genotype
-import vcfnp
+import allel
 import pandas
 import logging
 import sys
@@ -134,36 +134,37 @@ def readBED(inFile, logDebug):
   return (snpCHR, snpPOS, snpGT, snpWEI)
 
 def readVcf(inFile, logDebug):
-  log.info("reading the VCF file")
-  if logDebug:
-    vcf = vcfnp.variants(inFile, cache=False).view(np.recarray)
-    vcfD = vcfnp.calldata_2d(inFile, cache=False).view(np.recarray)
-  else:
-    sys.stderr = StringIO.StringIO()
-    vcf = vcfnp.variants(inFile, cache=False).view(np.recarray)
-    vcfD = vcfnp.calldata_2d(inFile, cache=False).view(np.recarray)
-    sys.stderr = sys.__stderr__
-  DPthres = np.mean(vcfD.DP[np.where(vcfD.DP > 0)[0]]) * 4
-  DPmean = DPthres / 4
-  (snpCHR, snpsREQ) = parseChrName(vcf.CHROM)
-  snpPOS = np.array(vcf.POS[snpsREQ])
-  try:
-    snpGT = np.array(vcfD.GT[snpsREQ,0])
-  except AttributeError:
-    die("input VCF file doesnt have required GT field")
-  try:
-    snpPL = vcfD.PL[snpsREQ, 0]
-    snpWEI = np.copy(snpPL)
-    snpWEI = snpWEI.astype(float)
-    snpWEI = snpWEI/(-10)
-    snpWEI = np.exp(snpWEI)
-  except AttributeError:
-    snpBinary = parseGT(snpGT)
-    snpWEI = np.ones((len(snpsREQ), 3))  ## for homo and het
-    snpWEI[np.where(snpBinary != 0),0] = 0
-    snpWEI[np.where(snpBinary != 1),2] = 0
-    snpWEI[np.where(snpBinary != 2),1] = 0
-  return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
+    log.info("reading the VCF file")
+    ## We read only one sample from the VCF file
+    if logDebug:
+        vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
+    else:
+        sys.stderr = StringIO.StringIO()
+        vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
+        #vcf = vcfnp.variants(inFile, cache=False).view(np.recarray)
+        #vcfD = vcfnp.calldata_2d(inFile, cache=False).view(np.recarray)
+        sys.stderr = sys.__stderr__
+    (snpCHR, snpsREQ) = parseChrName(vcf['variants/CHROM'])
+    try:
+        snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt()[snpsREQ, 0]
+    except AttributeError:
+        die("input VCF file doesnt have required GT field")
+    snpsREQ = snpsREQ[np.where(snpGT != './.')[0]]
+    snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt()[snpsREQ, 0]
+    if 'calldata/PL' in sorted(vcf.keys()):
+        snpWEI = np.copy(vcf['calldata/PL'][snpsREQ, 0]).astype('float')
+        snpWEI = snpWEI/(-10)
+        snpWEI = np.exp(snpWEI)
+    else:
+        snpBinary = parseGT(snpGT)
+        snpWEI = np.ones((len(snpsREQ), 3))  ## for homo and het
+        snpWEI[np.where(snpBinary != 0),0] = 0
+        snpWEI[np.where(snpBinary != 1),2] = 0
+        snpWEI[np.where(snpBinary != 2),1] = 0
+    snpCHR = snpCHR[snpsREQ]
+    DPmean = np.mean(vcf['calldata/DP'][snpsREQ,0])
+    snpPOS = np.array(vcf['variants/POS'][snpsREQ])
+    return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
 
 def getHeterozygosity(snpGT, outFile='default'):
     snpBinary = parseGT(snpGT)
