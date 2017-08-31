@@ -11,6 +11,7 @@ import argparse
 import sys
 from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
+from snpmatch.core import makedb
 import logging, logging.config
 
 __version__ = '1.9.1'
@@ -73,6 +74,11 @@ def get_options(program_license,program_version_message):
   pairparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   pairparser.add_argument("-o", "--output", dest="outFile", help="output json file")
   pairparser.set_defaults(func=snpmatch_paircomparions)
+  makedbparser = subparsers.add_parser('makedb', help="Create database files from given VCF, only give biallelic SNPs")
+  makedbparser.add_argument("-i", "--input_vcf", dest="inFile", help="input VCF file for the known strains.")
+  makedbparser.add_argument("-o", "--out_db_id", dest="db_id", help="output id for database files")
+  makedbparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
+  makedbparser.set_defaults(func=makedb_vcf_to_hdf5)
   return inOptions
 
 def checkARGs(args):
@@ -123,6 +129,13 @@ def snpmatch_paircomparions(args):
     if not os.path.isfile(args['inFile_2']):
         die("input file two does not exist: " + args['inFile_2'])
     snpmatch.pairwiseScore(args['inFile_1'], args['inFile_2'], args['logDebug'], args['outFile'])
+
+def makedb_vcf_to_hdf5(args):
+    if not args['inFile']:
+        die("input file not specified")
+    if not os.path.isfile(args['inFile']):
+        die("input file does not exist: " + args['inFile'])
+    makedb.makedb_from_vcf(args)
 
 def main():
   ''' Command line options '''
