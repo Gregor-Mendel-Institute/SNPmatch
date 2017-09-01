@@ -26,7 +26,6 @@ setup(
     keywords='Genotyping Low Coverage sequencing data',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     install_requires=[
-        "Cython",
         "scipy >= 0.17.0",
         "numpy >=1.9.0",
         "PyGWAS",

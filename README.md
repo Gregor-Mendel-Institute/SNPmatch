@@ -6,22 +6,17 @@ SNPmatch is a Python toolkit which can be used to genotype a sample from as-low-
 
 The below steps deal with running SNPmatch on a local machine. This package is only tested in Python 2.
 
-### Dependencies
-The SNPmatch uses various python packages (Cython, numpy, pandas, [PyGWAS](https://github.com/timeu/PyGWAS), scikit-allel). Most of which are automatically downloaded and installed with pip. Cython has to be installed before hand as given below.
-```bash
-pip install Cython
-```
+### Installation using pip
 
-### Installation using pip:
-
-SNPmatch can be easily installed with the help of pip. It can be installed from the git repo or through PyPi. The requried pip commands are given below.
+SNPmatch can be easily installed with the help of pip. SNPmatch uses various python packages (numpy, pandas, [PyGWAS](https://github.com/timeu/PyGWAS), [scikit-allel](https://github.com/cggh/scikit-allel)), which are automatically downloaded and installed while using pip. Follow the commands below for successful installation.
 
 ```bash
 ## installing SNPmatch from git hub repository
-pip install -e git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git
+pip install git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git
 ## or PyPi
 pip install SNPmatch
 ```
+SNPmatch can be installed either from the git repo or through PyPi.
 
 ### Database files
 

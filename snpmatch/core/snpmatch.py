@@ -199,7 +199,7 @@ def parseInput(inFile, logDebug, outFile = "parser"):
                 DPmean = "NA"
             else:
                 die("input file type %s not supported" % inType)
-            log.info("creating snpmatch parser file: %s", outFile)
+            log.info("creating snpmatch parser file: %s", outFile + '.npz')
             np.savez(outFile, chr = snpCHR, pos = snpPOS, gt = snpGT, wei = snpWEI, dp = DPmean)
             NumSNPs = len(snpCHR)
             case = 0
