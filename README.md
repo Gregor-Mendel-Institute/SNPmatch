@@ -8,7 +8,7 @@ The below steps deal with running SNPmatch on a local machine. This package is o
 
 ### Installation using pip
 
-SNPmatch can be easily installed with the help of pip. SNPmatch uses various python packages (numpy, pandas, [PyGWAS](https://github.com/timeu/PyGWAS), [scikit-allel](https://github.com/cggh/scikit-allel)), which are automatically downloaded and installed while using pip. Follow the commands below for successful installation.
+SNPmatch can be easily installed with the help of pip. SNPmatch uses various python packages (NumPy, pandas, [PyGWAS](https://github.com/timeu/PyGWAS), [scikit-allel](https://github.com/cggh/scikit-allel)), which are automatically downloaded and installed while using pip. Follow the commands below for successful installation.
 
 ```bash
 ## installing SNPmatch from git hub repository
@@ -16,7 +16,12 @@ pip install git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git
 ## or PyPi
 pip install SNPmatch
 ```
-SNPmatch can be installed either from the git repo or through PyPi.
+SNPmatch can be installed either from the git repo or through PyPi. In case of installation errors, please install these dependencies using the commands below (for a Debian based system).
+```bash
+sudo apt-get install python-dev libfreetype6-dev libxft-dev libblas-dev liblapack-dev libatlas-base-dev libhdf5-dev gfortran
+sudo pip install NumPy
+```
+Mac users can install these packages using [Homebrew](https://brew.sh/). These packages should be enough to install SNPmatch correctly. Please raise an issue in the Github repo if you still have trouble installing.
 
 ### Database files
 
@@ -109,4 +114,4 @@ These scripts are implemented based on the *A. thaliana* genome sizes. But the g
 
 ## Citation
 
-Pisupati et. al. Verification of Arabidopsis stock collection using SNPmatch - an algorithm to genotype high-plexed samples, manuscript under preparation.
+Pisupati et. al. Verification of Arabidopsis stock collections using SNPmatch - an algorithm for genotyping high-plexed samples, .
