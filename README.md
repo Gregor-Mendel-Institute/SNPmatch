@@ -114,4 +114,4 @@ These scripts are implemented based on the *A. thaliana* genome sizes. But the g
 
 ## Citation
 
-Pisupati et. al. Verification of Arabidopsis stock collections using SNPmatch - an algorithm for genotyping high-plexed samples, .
+Pisupati R. et al., 2017. Verification of Arabidopsis stock collections using SNPmatch – an algorithm to genotyping high-plexed samples. Cold Spring Harbor Laboratory – bioRxiv. doi: https://doi.org/10.1101/109520.
