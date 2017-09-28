@@ -12,6 +12,7 @@ import sys
 from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
 from snpmatch.core import makedb
+from 
 import logging, logging.config
 
 __version__ = '1.9.2'
@@ -80,6 +81,14 @@ def get_options(program_license,program_version_message):
   makedbparser.add_argument("-o", "--out_db_id", dest="db_id", help="output id for database files")
   makedbparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   makedbparser.set_defaults(func=makedb_vcf_to_hdf5)
+  simparser = subparsers.add_parser('simulate', help="Given SNP database, check the genotyping efficiency randomly selecting 'n' number of SNPs")
+  simparser.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
+  simparser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
+  simparser.add_argument("-a", "--ecotype_id", dest="AccID", help= "Ecotype ID you want draw the SNPs")
+  simparser.add_argument("-n", "--number_of_snps", dest="numSNPs", help= "number of SNPs to draw in random to genotype the sample")
+  simparser.add_argument("-o", "--output", dest="outFile", help="Output file with scores")
+  simparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
+  simparser.set_defaults(func=simulate_snps)
   return inOptions
 
 def checkARGs(args):
@@ -137,6 +146,18 @@ def makedb_vcf_to_hdf5(args):
     if not os.path.isfile(args['inFile']):
         die("input file does not exist: " + args['inFile'])
     makedb.makedb_from_vcf(args)
+
+def simulate_snps(args):
+    if not args['hdf5File']:
+        die("hdf5_file not specified")
+    if not args['hdf5accFile']:
+        die("hdf5accFile not specified")
+    if not os.path.isfile(args['hdf5File']):
+        die("hdf5_file does not exist: " + args['hdf5File'])
+    if not os.path.isfile(args['hdf5accFile']):
+        die("hdf5accFile does not exist: " + args['hdf5accFile'])
+    simulate
+
 
 def main():
   ''' Command line options '''
