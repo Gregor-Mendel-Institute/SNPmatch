@@ -17,8 +17,10 @@ def simulateSNPs(GenotypeData, GenotypeData_acc, AccID, numSNPs, outFile, err_ra
         AccToCheck = np.where(GenotypeData.accessions == AccID)[0][0]
     except NameError:
         snpmatch.die("accession is not present in the matrix!")
-    log.info("randomly choosing %s SNPs from accession %s", numSNPs, AccID)
-    sampleSNPs = np.sort(random.sample(np.where(GenotypeData_acc.snps[:,AccToCheck] >= 0)[0], numSNPs))
+    tot_snps = np.where(GenotypeData_acc.snps[:,AccToCheck] >= 0)[0]
+    log.info("randomly choosing %s SNPs from %s SNPs in accession %s", numSNPs, len(tot_snps), AccID)
+    sampleSNPs = np.sort(random.sample(tot_snps, numSNPs))
+    log.info("done!")
     ScoreList = np.zeros(len(GenotypeData.accessions), dtype="uint32")
     NumInfoSites = np.zeros(len(GenotypeData.accessions), dtype="uint32")
     NumMatSNPs = 0
@@ -41,5 +43,5 @@ def potatoSimulate(args):
     GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
     GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
     log.info("done!")
-    simulateSNPs(GenotypeData, GenotypeData_acc, args['accid'], args['numSNPs'], args['outFile'], args['err_rate'])
+    simulateSNPs(GenotypeData, GenotypeData_acc, args['AccID'], args['numSNPs'], args['outFile'], args['err_rate'])
     log.info("finished!")
