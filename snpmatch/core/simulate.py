@@ -34,9 +34,9 @@ def simulateSNPs(GenotypeData, GenotypeData_acc, AccID, numSNPs, outFile, err_ra
         NumMatSNPs = NumMatSNPs + len(sam1kSNPs)
         if i/chunk_size % 50 == 0:
             log.info("Done analysing %s SNPs", NumMatSNPs)
-            logging.info("writing data!")
-        ScoreList = np.array([random.uniform(ScoreList[i] - (ScoreList[i] * err_rate), ScoreList[i]) for i in range(num_lines)], dtype=int)
-        snpmatch.print_out_table(outFile, GenotypeData.accessions, ScoreList, NumInfoSites, numSNPs, "NA")
+    logging.info("writing data!")
+    ScoreList = np.array([random.uniform(ScoreList[i] - (ScoreList[i] * err_rate), ScoreList[i]) for i in range(num_lines)], dtype=int)
+    snpmatch.print_out_table(outFile, GenotypeData.accessions, ScoreList, NumInfoSites, numSNPs, "NA")
 
 def potatoSimulate(args):
     log.info("loading database files")
