@@ -4,6 +4,7 @@ import numpy as np
 from pygwas.core import genotype
 import sys
 import os
+import os.path
 import json
 import gzip
 from subprocess import Popen, PIPE
@@ -79,8 +80,16 @@ def makeHDF5s(csvFile, outFile):
     logging.info("done!")
 
 def makedb_from_vcf(args):
-    log.info("converting VCF to CSV")
-    getCSV(args['inFile'], args['db_id'] + '.csv', args['bcfpath'])
-    log.info("converting CSV to hdf5!")
-    makeHDF5s(args['db_id'] + '.csv', args['db_id'])
-    log.info('done!')
+    _,inType = os.path.splitext(args['inFile'])
+    if inType == '.vcf':
+        log.info("converting VCF to CSV")
+        getCSV(args['inFile'], args['db_id'] + '.csv', args['bcfpath'])
+        log.info("converting CSV to hdf5!")
+        makeHDF5s(args['db_id'] + '.csv', args['db_id'])
+        log.info('done!')
+    elif inType == '.csv':
+        log.info("converting CSV to hdf5!")
+        makeHDF5s(args['db_id'] + '.csv', args['db_id'])
+        log.info('done!')
+    else:
+        die("please provide either a VCF file or a CSV!")
