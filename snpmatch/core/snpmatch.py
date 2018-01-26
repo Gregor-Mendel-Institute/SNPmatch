@@ -4,12 +4,10 @@
 import numpy as np
 import numpy.ma
 from pygwas.core import genotype
-import allel
-import pandas
 import logging
 import sys
 import os
-import StringIO
+import parsers
 import json
 
 log = logging.getLogger(__name__)
@@ -18,8 +16,8 @@ snp_thres = 4000
 prob_thres = 0.98
 
 def die(msg):
-  sys.stderr.write('Error: ' + msg + '\n')
-  sys.exit(1)
+    sys.stderr.write('Error: ' + msg + '\n')
+    sys.exit(1)
 
 def likeliTest(n, y):
   p = 0.99999999
@@ -79,95 +77,21 @@ def CaseInterpreter(overlap, NumSNPs, topHits, probScore):
   return (case, note)
 
 def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs):
-  num_lines = len(ScoreList)
-  (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
-  topHits = np.where(LikeLiHoodRatios < lr_thres)[0]
-  probScore = [float(ScoreList[i])/NumInfoSites[i] for i in range(num_lines)]
-  overlapScore = [float(NumInfoSites[i])/NumMatSNPs for i in range(num_lines)]
-  probScore = np.array(probScore, dtype = float)
-  sorted_order = topHits[np.argsort(-probScore[topHits])]
-  (case, note) = CaseInterpreter(overlap, NumMatSNPs, topHits, probScore)
-  matches_dict = [(AccList[i], probScore[i], NumInfoSites[i], overlapScore[i]) for i in sorted_order]
-  topHitsDict = {'overlap': [overlap, NumMatSNPs], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}
-  with open(outFile, "w") as out_stats:
-    out_stats.write(json.dumps(topHitsDict))
-
-def parseGT(snpGT):
-    first = snpGT[0]
-    snpBinary = np.zeros(len(snpGT), dtype = "int8")
-    if first.find('|') != -1:
-        ## GT is phased
-        separator = "|"
-    elif first.find('/') != -1:
-        ## GT is not phased
-        separator = "/"
-    elif np.char.isdigit(first):
-        return np.array(np.copy(snpGT), dtype = "int8")
-    else:
-        die("unable to parse the format of GT in vcf!")
-    hetGT = "0" + separator + "1"
-    refGT = "0" + separator + "0"
-    altGT = "1" + separator + "1"
-    nocall = "." + separator + "."
-    snpBinary[np.where(snpGT == altGT)[0]] = 1
-    snpBinary[np.where(snpGT == hetGT)[0]] = 2
-    snpBinary[np.where(snpGT == nocall)[0]] = -1
-    return snpBinary
-
-def parseChrName(targetCHR):
-    snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetCHR, dtype="string")), "chr", "")
-    snpsREQ = np.where(np.char.isdigit(snpCHROM))[0]   ## Filtering positions from mitochondrial and chloroplast
-    snpCHR = snpCHROM[snpsREQ]
-    return (snpCHR, snpsREQ)
-
-def readBED(inFile, logDebug):
-    log.info("reading the position file")
-    targetSNPs = pandas.read_table(inFile, header=None, usecols=[0,1,2])
-    (snpCHR, snpsREQ) = parseChrName(targetSNPs[0])
-    snpPOS = np.array(targetSNPs[1], dtype=int)[snpsREQ]
-    snpGT = np.array(targetSNPs[2])[snpsREQ]
-    snpBinary = parseGT(snpGT)
-    snpWEI = np.ones((len(snpCHR), 3))  ## for homo and het
-    snpWEI[np.where(snpBinary != 0),0] = 0
-    snpWEI[np.where(snpBinary != 1),2] = 0
-    snpWEI[np.where(snpBinary != 2),1] = 0
-    return (snpCHR, snpPOS, snpGT, snpWEI)
-
-def readVcf(inFile, logDebug):
-    log.info("reading the VCF file")
-    ## We read only one sample from the VCF file
-    if logDebug:
-        vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
-    else:
-        sys.stderr = StringIO.StringIO()
-        vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
-        #vcf = vcfnp.variants(inFile, cache=False).view(np.recarray)
-        #vcfD = vcfnp.calldata_2d(inFile, cache=False).view(np.recarray)
-        sys.stderr = sys.__stderr__
-    (snpCHR, snpsREQ) = parseChrName(vcf['variants/CHROM'])
-    try:
-        snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt()[snpsREQ, 0]
-    except AttributeError:
-        die("input VCF file doesnt have required GT field")
-    snpsREQ = snpsREQ[np.where(snpGT != './.')[0]]
-    snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt()[snpsREQ, 0]
-    if 'calldata/PL' in sorted(vcf.keys()):
-        snpWEI = np.copy(vcf['calldata/PL'][snpsREQ, 0]).astype('float')
-        snpWEI = snpWEI/(-10)
-        snpWEI = np.exp(snpWEI)
-    else:
-        snpBinary = parseGT(snpGT)
-        snpWEI = np.ones((len(snpsREQ), 3))  ## for homo and het
-        snpWEI[np.where(snpBinary != 0),0] = 0
-        snpWEI[np.where(snpBinary != 1),2] = 0
-        snpWEI[np.where(snpBinary != 2),1] = 0
-    snpCHR = snpCHR[snpsREQ]
-    DPmean = np.mean(vcf['calldata/DP'][snpsREQ,0])
-    snpPOS = np.array(vcf['variants/POS'][snpsREQ])
-    return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
+    num_lines = len(ScoreList)
+    (LikeLiHoods, LikeLiHoodRatios) = calculate_likelihoods(ScoreList, NumInfoSites)
+    topHits = np.where(LikeLiHoodRatios < lr_thres)[0]
+    probScore = [float(ScoreList[i])/NumInfoSites[i] for i in range(num_lines)]
+    overlapScore = [float(NumInfoSites[i])/NumMatSNPs for i in range(num_lines)]
+    probScore = np.array(probScore, dtype = float)
+    sorted_order = topHits[np.argsort(-probScore[topHits])]
+    (case, note) = CaseInterpreter(overlap, NumMatSNPs, topHits, probScore)
+    matches_dict = [(AccList[i], probScore[i], NumInfoSites[i], overlapScore[i]) for i in sorted_order]
+    topHitsDict = {'overlap': [overlap, NumMatSNPs], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}
+    with open(outFile, "w") as out_stats:
+        out_stats.write(json.dumps(topHitsDict))
 
 def getHeterozygosity(snpGT, outFile='default'):
-    snpBinary = parseGT(snpGT)
+    snpBinary = parsers.parseGT(snpGT)
     numHets = len(np.where(snpBinary == 2)[0])
     if outFile != 'default':
         with open(outFile) as json_out:
@@ -176,45 +100,6 @@ def getHeterozygosity(snpGT, outFile='default'):
         with open(outFile, "w") as out_stats:
           out_stats.write(json.dumps(topHitsDict))
     return float(numHets)/len(snpGT)
-
-def parseInput(inFile, logDebug, outFile = "parser"):
-    if outFile == "parser" or not outFile:
-        outFile = inFile + ".snpmatch"
-    if os.path.isfile(inFile + ".snpmatch.npz"):
-        log.info("snpmatch parser dump found! loading %s", inFile + ".snpmatch.npz")
-        snps = np.load(inFile + ".snpmatch.npz")
-        (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
-    else:
-        _,inType = os.path.splitext(inFile)
-        if inType == '.npz':
-            log.info("loading snpmatch parser file! %s", inFile)
-            snps = np.load(inFile)
-            (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
-        else:
-            log.info('running snpmatch parser!')
-            if inType == '.vcf':
-                (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(inFile, logDebug)
-            elif inType == '.bed':
-                (snpCHR, snpPOS, snpGT, snpWEI) = readBED(inFile, logDebug)
-                DPmean = "NA"
-            else:
-                die("input file type %s not supported" % inType)
-            log.info("creating snpmatch parser file: %s", outFile + '.npz')
-            np.savez(outFile, chr = snpCHR, pos = snpPOS, gt = snpGT, wei = snpWEI, dp = DPmean)
-            NumSNPs = len(snpCHR)
-            case = 0
-            note = "Sufficient number of SNPs"
-            if NumSNPs < snp_thres:
-                note = "Attention: low number of SNPs provided"
-                case = 1
-            snpst = np.unique(snpCHR, return_counts=True)
-            snpdict = dict(('Chr%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
-            statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": DPmean}
-            statdict['percent_heterozygosity'] = getHeterozygosity(snpGT)
-            with open(outFile + ".stats.json", "w") as out_stats:
-                out_stats.write(json.dumps(statdict))
-    log.info("done!")
-    return (snpCHR, snpPOS, snpGT, snpWEI, DPmean)
 
 def genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, hdf5File, hdf5accFile, outFile):
   NumSNPs = len(snpCHR)
@@ -228,7 +113,7 @@ def genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, hdf5File, hdf5accFile, outF
   NumMatSNPs = 0
   overlappedInds = np.zeros(0, dtype=int)
   chunk_size = 1000
-  for ind,echr in enumerate(parseChrName(GenotypeData.chrs)[0]):
+  for ind,echr in enumerate(parsers.parseChrName(GenotypeData.chrs)[0]):
     perchrTarPos = np.where(snpCHR == echr)[0]
     perchrtarSNPpos = snpPOS[perchrTarPos]
     log.info("Analysing positions in chromosome %s", echr)
@@ -252,10 +137,8 @@ def genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, hdf5File, hdf5accFile, outF
       tempScore1 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs1, dtype=int).T, matchedTarWei[j:j+chunk_size,1]).T, axis=0)
       tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[j:j+chunk_size,2]).T, axis=0)
       ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
-      if(len(TarGTs0[j:j+chunk_size]) > 1):
+      if(len(TarGTs0[j:j+chunk_size]) >= 1):
         NumInfoSites = NumInfoSites + len(TarGTs0[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
-      elif(len(TarGTs0[j:j+chunk_size]) == 1):
-        NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     log.info("Done analysing %s positions", NumMatSNPs)
   log.info("writing score file!")
   overlap = float(NumMatSNPs)/NumSNPs
@@ -267,14 +150,14 @@ def genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, hdf5File, hdf5accFile, outF
   return (ScoreList, NumInfoSites)
 
 def potatoGenotyper(args):
-  (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
+  (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = parsers.parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
   log.info("running genotyper!")
   (ScoreList, NumInfoSites) = genotyper(snpCHR, snpPOS, snpGT, snpWEI, DPmean, args['hdf5File'], args['hdf5accFile'], args['outFile'])
   log.info("finished!")
 
 def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
-    (snpCHR1, snpPOS1, snpGT1, snpWEI1, DPmean1) = parseInput(inFile = inFile_1, logDebug = logDebug)
-    (snpCHR2, snpPOS2, snpGT2, snpWEI2, DPmean2) = parseInput(inFile = inFile_2, logDebug = logDebug)
+    (snpCHR1, snpPOS1, snpGT1, snpWEI1, DPmean1) = parsers.parseInput(inFile = inFile_1, logDebug = logDebug)
+    (snpCHR2, snpPOS2, snpGT2, snpWEI2, DPmean2) = parsers.parseInput(inFile = inFile_2, logDebug = logDebug)
     snpmatch_stats = {}
     unique_1, unique_2, common, scores = 0, 0, 0, 0
     chrs = np.union1d(snpCHR1, snpCHR2)

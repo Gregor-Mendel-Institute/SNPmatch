@@ -105,6 +105,7 @@ These scripts are implemented based on the *A. thaliana* genome sizes. But the g
 - 1.7.2: Stable version, 15-12-2016
 - 1.8.2: Stable version, 16-02-2017
 - 1.9.2: Stable version, 24-08-2017
+- 2.0.0: Stable version, 26-01-2018
 
 
 ## Credits
@@ -116,4 +117,3 @@ These scripts are implemented based on the *A. thaliana* genome sizes. But the g
 
 Pisupati, R. *et al.*. Verification of *Arabidopsis* stock collections using SNPmatch, a tool for genotyping high-plexed samples.  *Nature Scientific Data*  **4**, 170184 (2017).
 [doi:10.1038/sdata.2017.184](https://www.nature.com/articles/sdata2017184)
-

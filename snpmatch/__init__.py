@@ -15,8 +15,8 @@ from snpmatch.core import makedb
 from snpmatch.core import simulate
 import logging, logging.config
 
-__version__ = '1.9.2'
-__updated__ = "31.8.2017"
+__version__ = '2.0.0'
+__updated__ = "26.01.2018"
 __date__ = "25.10.2016"
 
 def setLog(logDebug):
@@ -47,6 +47,7 @@ def get_options(program_license,program_version_message):
   inbred_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   inbred_parser.add_argument("-o", "--output", dest="outFile", help="Output file with the probability scores")
   inbred_parser.set_defaults(func=snpmatch_inbred)
+
   cross_parser = subparsers.add_parser('cross', help="SNPmatch on the crosses (F2s and F3s) of A. thaliana")
   cross_parser.add_argument("-i", "--input_file", dest="inFile", help="VCF/BED file for the variants in the sample")
   cross_parser.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
@@ -55,6 +56,7 @@ def get_options(program_license,program_version_message):
   cross_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   cross_parser.add_argument("-o", "--output", dest="outFile", help="Output files with the probability scores and scores along windows")
   cross_parser.set_defaults(func=snpmatch_cross)
+
   genocross_parser = subparsers.add_parser('genotype_cross', help="Genotype the crosses by windows given parents")
   genocross_parser.add_argument("-i", "--input_file", dest="inFile", help="VCF file for the variants in the sample")
   genocross_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
@@ -69,18 +71,21 @@ def get_options(program_license,program_version_message):
   parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   parser.add_argument("-o", "--output", dest="outFile", help="output + .npz file is generater required for SNPmatch")
   parser.set_defaults(func=snpmatch_parser)
+
   pairparser = subparsers.add_parser('pairsnp', help="pairwise comparison of two snp files")
   pairparser.add_argument("-i", "--input_file_1", dest="inFile_1", help="VCF/BED file for the variants in the sample one")
   pairparser.add_argument("-j", "--input_file_2", dest="inFile_2", help="VCF/BED file for the variants in the sample two")
   pairparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   pairparser.add_argument("-o", "--output", dest="outFile", help="output json file")
   pairparser.set_defaults(func=snpmatch_paircomparions)
+
   makedbparser = subparsers.add_parser('makedb', help="Create database files from given VCF, only give biallelic SNPs")
-  makedbparser.add_argument("-i", "--input_vcf", dest="inFile", help="input VCF file for the known strains.")
+  makedbparser.add_argument("-i", "--input_vcf", dest="inFile", help="input VCF file for the known strains. You can also provide a CSV file which is an intermediate file in the process.")
   makedbparser.add_argument("-p", "--bcftools_path", dest="bcfpath", help="path to the bcftools executable. Not necessary if present in BASH PATH", default='')
   makedbparser.add_argument("-o", "--out_db_id", dest="db_id", help="output id for database files")
   makedbparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   makedbparser.set_defaults(func=makedb_vcf_to_hdf5)
+
   simparser = subparsers.add_parser('simulate', help="Given SNP database, check the genotyping efficiency randomly selecting 'n' number of SNPs")
   simparser.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   simparser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
@@ -122,7 +127,8 @@ def snpmatch_parser(args):
   if not args['outFile']:
     if os.path.isfile(args['inFile'] + ".snpmatch.npz"):
       os.remove(args['inFile'] + ".snpmatch.npz")
-  snpmatch.parseInput(inFile = args['inFile'], logDebug =  args['logDebug'], outFile = args['outFile'])
+  from snpmatch.core import parsers
+  parsers.parseInput(inFile = args['inFile'], logDebug =  args['logDebug'], outFile = args['outFile'])
 
 def genotype_cross(args):
   #checkARGs(args)

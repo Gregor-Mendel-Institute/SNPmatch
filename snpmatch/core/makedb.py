@@ -89,7 +89,7 @@ def makedb_from_vcf(args):
         log.info('done!')
     elif inType == '.csv':
         log.info("converting CSV to hdf5!")
-        makeHDF5s(args['db_id'] + '.csv', args['db_id'])
+        makeHDF5s(args['inFile'], args['db_id'])
         log.info('done!')
     else:
         die("please provide either a VCF file or a CSV!")

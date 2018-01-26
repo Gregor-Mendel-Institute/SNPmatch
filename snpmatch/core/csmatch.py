@@ -10,6 +10,7 @@ import logging
 import os
 import StringIO
 import snpmatch
+import parsers
 import json
 import itertools
 
@@ -92,10 +93,8 @@ def crossWindower(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, outFile)
       tempScore1 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs1, dtype=int).T, matchedTarWei[j:j+chunk_size,1]).T, axis=0)
       tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[j:j+chunk_size,2]).T, axis=0)
       ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
-      if(len(TarGTs0[j:j+chunk_size]) > 1):
+      if(len(TarGTs0[j:j+chunk_size]) >= 1):
         NumInfoSites = NumInfoSites + len(TarGTs0[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0)
-      elif(len(TarGTs0[j:j+chunk_size]) == 1):
-        NumInfoSites = NumInfoSites + 1 - numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int)
     TotScoreList = TotScoreList + ScoreList
     TotNumInfoSites = TotNumInfoSites + NumInfoSites
     writeBinData(out_file, i, GenotypeData, ScoreList, NumInfoSites)
@@ -197,7 +196,7 @@ def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, Genoty
     score = 0
     numinfo = 0
     NumMatSNPs = 0
-    for ind,echr in enumerate(snpmatch.parseChrName(GenotypeData.chrs)[0]):
+    for ind,echr in enumerate(parsers.parseChrName(GenotypeData.chrs)[0]):
       perchrTarPos = np.where(snpCHR == echr)[0]
       perchrtarSNPpos = snpPOS[perchrTarPos]
       start = GenotypeData.chr_regions[ind][0]
@@ -223,7 +222,7 @@ def crossIdentifier(binLen, snpCHR, snpPOS, snpWEI, DPmean, GenotypeData, Genoty
   crossInterpreter(GenotypeData, binLen, outID)
 
 def potatoCrossIdentifier(args):
-  (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = snpmatch.parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
+  (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = parsers.parseInput(inFile = args['inFile'], logDebug = args['logDebug'])
   log.info("loading genotype files!")
   GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
   GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
@@ -252,7 +251,7 @@ def getWindowGenotype(matchedP1, totalMarkers, lr_thres = 2.706):
 
 def crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, inFile, binLen, outFile, logDebug = True):
     ## inFile are the SNPs of the sample
-    (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = snpmatch.parseInput(inFile = inFile, logDebug = logDebug)
+    (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = parsers.parseInput(inFile = inFile, logDebug = logDebug)
     # identifying the segregating SNPs between the accessions
     # only selecting 0 or 1
     segSNPsind = np.where((snpsP1 != snpsP2) & (snpsP1 >= 0) & (snpsP2 >= 0) & (snpsP1 < 2) & (snpsP2 < 2))[0]
@@ -272,7 +271,7 @@ def crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, inFile, b
       matchedTarInd = perchrTarPosind[np.where(np.in1d(perchrTarPos, reqPOS))[0]]
       matchedTarGTs = snpGT[matchedTarInd]
       try:
-        TarGTBinary = snpmatch.parseGT(matchedTarGTs)
+        TarGTBinary = parsers.parseGT(matchedTarGTs)
         TarGTBinary[np.where(TarGTBinary == 2)[0]] = 4
         genP1 = np.subtract(TarGTBinary, snpsP1[matchedAccInd])
         genP1no = len(np.where(genP1 == 0)[0])
@@ -299,8 +298,8 @@ def crossGenotyper(args):
         log.info("input files: %s and %s" % (args['parents'], args['father']))
         if not os.path.isfile(args['parents']) and os.path.isfile(args['father']):
             die("either of the input files do not exists, please provide VCF/BED file for parent genotype information")
-        (p1snpCHR, p1snpPOS, p1snpGT, p1snpWEI, p1DPmean) = snpmatch.parseInput(inFile = args['parents'], logDebug = args['logDebug'])
-        (p2snpCHR, p2snpPOS, p2snpGT, p2snpWEI, p2DPmean) = snpmatch.parseInput(inFile = args['father'], logDebug = args['logDebug'])
+        (p1snpCHR, p1snpPOS, p1snpGT, p1snpWEI, p1DPmean) = parsers.parseInput(inFile = args['parents'], logDebug = args['logDebug'])
+        (p2snpCHR, p2snpPOS, p2snpGT, p2snpWEI, p2DPmean) = parsers.parseInput(inFile = args['father'], logDebug = args['logDebug'])
         commonCHRs_ids = np.union1d(p1snpCHR, p2snpCHR)
         commonSNPsCHR = np.zeros(0, dtype=commonCHRs_ids.dtype)
         commonSNPsPOS = np.zeros(0, dtype=int)
@@ -316,8 +315,8 @@ def crossGenotyper(args):
             perchrsnpsP2 = np.repeat(-1, len(perchrPositions)).astype('int8')
             perchrsnpsP1_inds = np.where(np.in1d(p1snpPOS[perchrP1inds], perchrPositions))[0]
             perchrsnpsP2_inds = np.where(np.in1d(p2snpPOS[perchrP2inds], perchrPositions))[0]
-            snpsP1 = np.append(snpsP1, snpmatch.parseGT(p1snpGT[perchrsnpsP1_inds]))
-            snpsP2 = np.append(snpsP2, snpmatch.parseGT(p2snpGT[perchrsnpsP2_inds]))
+            snpsP1 = np.append(snpsP1, parsers.parseGT(p1snpGT[perchrsnpsP1_inds]))
+            snpsP2 = np.append(snpsP2, parsers.parseGT(p2snpGT[perchrsnpsP2_inds]))
         log.info("done!")
     else:
         parents = args['parents']
