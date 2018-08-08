@@ -32,6 +32,14 @@ def getSamples(inVCF):
     return samples
 
 def getCSV(inVCF, outFile, bcfpath = ''):
+    try:
+        from subprocess import check_output
+        if bcfpath  == '':
+            check_output('bcftools -h', shell=True)
+        else:
+            check_output(bcfpath + '/bcftools -h', shell=True)
+    except:
+        die("please provide bcftools installation path. '%s' is not found!" % (bcfpath + '/bcftools'))
     outcsv = open(outFile, "w")
     samples = getSamples(inVCF)
     outcsv.write('Chromosome,Position')
@@ -44,7 +52,7 @@ def getCSV(inVCF, outFile, bcfpath = ''):
         bcftool_command = "bcftools query -f \"%CHROM,%POS[,%GT]\n\" " + inVCF
     else:
         bcftool_command = bcfpath + '/' + "bcftools query -f \"%CHROM,%POS[,%GT]\n\" " + inVCF
-    sed_command = "| sed 's/,0[\/|]0/,0/g' | sed 's/,1[\/|]1/,1/g' | sed 's/,0[\/|]1/,2/g' | sed 's/,\.[\/|]\./,-1/g'"
+    sed_command = "| sed 's/,0[\/|]0/,0/g' | sed 's/,1[\/|]1/,1/g' | sed 's/,0[\/|]1/,2/g'| sed 's/,1[\/|]0/,2/g' | sed 's/,\.[\/|]\./,-1/g'"
     full_command = bcftool_command + sed_command
     convertcsv = Popen(full_command, shell=True, stdout = outcsv)
     convertcsv.wait()
