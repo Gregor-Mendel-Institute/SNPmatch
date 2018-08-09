@@ -102,10 +102,9 @@ These scripts are implemented based on the *A. thaliana* genome sizes. But the g
 
 ## History
 
-- 1.7.2: Stable version, 15-12-2016
-- 1.8.2: Stable version, 16-02-2017
 - 1.9.2: Stable version, 24-08-2017
 - 2.0.0: Stable version, 26-01-2018
+- 2.1.0: Stable version, 09-08-2018
 
 
 ## Credits
