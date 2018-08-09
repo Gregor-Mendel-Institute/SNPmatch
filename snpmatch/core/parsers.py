@@ -21,12 +21,13 @@ def parseGT(snpGT):
         return np.array(np.copy(snpGT), dtype = "int8")
     else:
         snpmatch.die("unable to parse the format of GT in vcf!")
-    hetGT = "0" + separator + "1"
+    hetGT_1 = "0" + separator + "1"
+    hetGT_2 = "1" + separator + "0"
     refGT = "0" + separator + "0"
     altGT = "1" + separator + "1"
     nocall = "." + separator + "."
     snpBinary[np.where(snpGT == altGT)[0]] = 1
-    snpBinary[np.where(snpGT == hetGT)[0]] = 2
+    snpBinary[np.where((snpGT == hetGT_1) | (snpGT == hetGT_2) )[0]] = 2
     snpBinary[np.where(snpGT == nocall)[0]] = -1
     return snpBinary
 
@@ -73,7 +74,6 @@ def readVcf(inFile, logDebug):
         snpWEI = np.copy(vcf['calldata/PL'][snpsREQ, 0]).astype('float')
         snpWEI = snpWEI/(-10)
         snpWEI = np.exp(snpWEI)
-
     else:
         snpBinary = parseGT(snpGT)
         snpWEI = np.ones((len(snpsREQ), 3))  ## for homo and het
@@ -81,7 +81,10 @@ def readVcf(inFile, logDebug):
         snpWEI[np.where(snpBinary != 1),2] = 0
         snpWEI[np.where(snpBinary != 2),1] = 0
     snpCHR = snpCHR[snpsREQ]
-    DPmean = np.mean(vcf['calldata/DP'][snpsREQ,0])
+    if 'calldata/DP' in sorted(vcf.keys()):
+        DPmean = np.mean(vcf['calldata/DP'][snpsREQ,0])
+    else:
+        DPmean = "NA"
     snpPOS = np.array(vcf['variants/POS'][snpsREQ])
     return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
 
