@@ -85,7 +85,7 @@ def print_topHits(outFile, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs
     probScore = np.array(probScore, dtype = float)
     sorted_order = topHits[np.argsort(-probScore[topHits])]
     (case, note) = CaseInterpreter(overlap, NumMatSNPs, topHits, probScore)
-    matches_dict = [(AccList[i], probScore[i], NumInfoSites[i], overlapScore[i]) for i in sorted_order]
+    matches_dict = [(str(AccList[i]), probScore[i], int(NumInfoSites[i]), int(overlapScore[i])) for i in sorted_order]
     topHitsDict = {'overlap': [overlap, NumMatSNPs], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}
     with open(outFile, "w") as out_stats:
         out_stats.write(json.dumps(topHitsDict))
