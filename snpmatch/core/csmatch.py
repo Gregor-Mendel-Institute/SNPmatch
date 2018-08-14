@@ -63,10 +63,9 @@ def get_bins_arrays(g_chrs, g_snppos, binLen):
             yield((chr_ix, e_bin[0], e_bin[1]))
 
 
-def writeBinData(out_file, e_g, GenotypeData, ScoreList, NumInfoSites):
+def writeBinData(out_file, bin_inds, GenotypeData, ScoreList, NumInfoSites):
     num_lines = len(GenotypeData.accessions)
     (likeliScore, likeliHoodRatio) = snpmatch.GenotyperOutput.calculate_likelihoods(ScoreList, NumInfoSites)
-    bin_bed = str(GenotypeData.chrs[e_g[0]]) + ',' + str(e_g[1][0]) + ',' + str(e_g[1][1])
     if len(likeliScore) > 0:
         NumAmb = np.where(likeliHoodRatio < snpmatch.lr_thres)[0]
         if len(NumAmb) >= 1 and len(NumAmb) < num_lines:
@@ -76,7 +75,7 @@ def writeBinData(out_file, e_g, GenotypeData, ScoreList, NumInfoSites):
                 nextLikeli = 1
             for k in NumAmb:
                 score = float(ScoreList[k])/NumInfoSites[k]
-                out_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[k], int(ScoreList[k]), NumInfoSites[k], score, likeliScore[k], nextLikeli, len(NumAmb), bin_bed))
+                out_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[k], int(ScoreList[k]), NumInfoSites[k], score, likeliScore[k], nextLikeli, len(NumAmb), bin_inds))
 
 def crossWindower(inputs, GenotypeData, binLen, outFile):
     inputs.filter_chr_names(GenotypeData)
@@ -88,7 +87,7 @@ def crossWindower(inputs, GenotypeData, binLen, outFile):
     iter_bins_genome = get_bins_genome(GenotypeData, binLen)
     iter_bins_snps = get_bins_arrays(inputs.chrs, inputs.pos, binLen)
     out_file = open(outFile, 'w')
-    bin_inds = 0
+    bin_inds = 1
     winds_chrs = np.zeros(0, dtype = GenotypeData.chrs.dtype)
     for e_g, e_s in zip(iter_bins_genome, iter_bins_snps):
         g_bin_pos = GenotypeData.positions[e_g[2]]
@@ -115,11 +114,11 @@ def crossWindower(inputs, GenotypeData, binLen, outFile):
                 NumInfoSites = NumInfoSites + len(TarGTs0[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0)
         TotScoreList = TotScoreList + ScoreList
         TotNumInfoSites = TotNumInfoSites + NumInfoSites
-        writeBinData(out_file, e_g, GenotypeData, ScoreList, NumInfoSites)
-        bin_inds += 1
+        writeBinData(out_file, bin_inds, GenotypeData, ScoreList, NumInfoSites)
         winds_chrs = np.append( winds_chrs, inputs.chr_list[e_g[0]] )
         if bin_inds % 50 == 0:
             log.info("Done analysing %s positions", NumMatSNPs)
+        bin_inds += 1
     out_file.close()
     overlap = float(NumMatSNPs)/len(inputs.filter_inds_ix)
     result = snpmatch.GenotyperOutput(GenotypeData.accessions, TotScoreList, TotNumInfoSites, overlap, NumMatSNPs, inputs.dp)
@@ -143,8 +142,8 @@ def crossInterpreter(snpmatch_result, GenotypeData, binLen, outID):
     outFile = outID + '.windowscore.txt'
     scoreFile = outID + '.scores.txt'
     log.info("running cross interpreter!")
-    likeLiwind = pandas.read_table(outFile, header=None)
-    ScoreAcc = pandas.read_table(scoreFile, header=None)
+    likeLiwind = pd.read_table(outFile, header=None)
+    ScoreAcc = pd.read_table(scoreFile, header=None)
     topHitsDict = json.load(open(scoreFile + ".matches.json", 'r'))
     if topHitsDict['interpretation']['case'] == 3:
         homo_wind = getHomoWindows(likeLiwind)
