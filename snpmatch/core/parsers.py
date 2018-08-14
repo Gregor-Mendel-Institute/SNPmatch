@@ -31,98 +31,116 @@ def parseGT(snpGT):
     snpBinary[np.where(snpGT == nocall)[0]] = -1
     return snpBinary
 
-def parseChrName(targetCHR):
-    snpCHROM = np.char.replace(np.core.defchararray.lower(np.array(targetCHR, dtype="string")), "chr", "")
-    snpsREQ = np.where(np.char.isdigit(snpCHROM))[0]   ## Filtering positions from mitochondrial and chloroplast
-    snpCHR = snpCHROM[snpsREQ]
-    return (snpCHR, snpsREQ)
+class ParseInputs(object):
+    ## class object for parsing input files for SNPmatch
 
-def readBED(inFile, logDebug):
-    log.info("reading the position file")
-    targetSNPs = pd.read_table(inFile, header=None, usecols=[0,1,2])
-    (snpCHR, snpsREQ) = parseChrName(targetSNPs[0])
-    snpPOS = np.array(targetSNPs[1], dtype=int)[snpsREQ]
-    snpGT = np.array(targetSNPs[2])[snpsREQ]
-    snpBinary = parseGT(snpGT)
-    snpWEI = np.ones((len(snpCHR), 3))  ## for homo and het
-    snpWEI[np.where(snpBinary != 0),0] = 0
-    snpWEI[np.where(snpBinary != 1),2] = 0
-    snpWEI[np.where(snpBinary != 2),1] = 0
-    return (snpCHR, snpPOS, snpGT, snpWEI)
+    def __init__(self, inFile, logDebug, outFile = "parser" ):
+        if outFile == "parser" or not outFile:
+            outFile = inFile + ".snpmatch"
+        if os.path.isfile(inFile + ".snpmatch.npz"):
+            log.info("snpmatch parser dump found! loading %s", inFile + ".snpmatch.npz")
+            snps = np.load(inFile + ".snpmatch.npz")
+            self.load_snp_info(snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
+        else:
+            _,inType = os.path.splitext(inFile)
+            if inType == '.npz':
+                log.info("loading snpmatch parser file! %s", inFile)
+                snps = np.load(inFile)
+                self.load_snp_info(snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
+            else:
+                log.info('running snpmatch parser!')
+                if inType == '.vcf':
+                    (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = self.read_vcf(inFile, logDebug)
 
-def readVcf(inFile, logDebug):
-    log.info("reading the VCF file")
-    ## We read only one sample from the VCF file
-    if logDebug:
-        vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
-    else:
-        import StringIO
-        import sys
-        sys.stderr = StringIO.StringIO()
-        vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
-        #vcf = vcfnp.variants(inFile, cache=False).view(np.recarray)
-        #vcfD = vcfnp.calldata_2d(inFile, cache=False).view(np.recarray)
-        sys.stderr = sys.__stderr__
-    (snpCHR, snpsREQ) = parseChrName(vcf['variants/CHROM'])
-    try:
-        snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt()[snpsREQ, 0]
-    except AttributeError:
-        snpmatch.die("input VCF file doesnt have required GT field")
-    snpsREQ = snpsREQ[np.where(snpGT != './.')[0]]
-    snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt()[snpsREQ, 0]
-    if 'calldata/PL' in sorted(vcf.keys()):
-        snpWEI = np.copy(vcf['calldata/PL'][snpsREQ, 0]).astype('float')
-        snpWEI = snpWEI/(-10)
-        snpWEI = np.exp(snpWEI)
-    else:
+                elif inType == '.bed':
+                    (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = self.read_bed(inFile, logDebug)
+                else:
+                    snpmatch.die("input file type %s not supported" % inType)
+                self.load_snp_info(snpCHR, snpPOS, snpGT, snpWEI, DPmean)
+                self.save_snp_info(outFile)
+                self.case_interpret_inputs(outFile + ".stats.json")
+        log.info("done!")
+
+    def load_snp_info(self, snpCHR, snpPOS, snpGT, snpWEI, DPmean):
+        self.chrs = snpCHR
+        self.pos = snpPOS
+        self.gt = snpGT
+        self.wei = snpWEI
+        self.dp = DPmean
+
+    def save_snp_info(self, outFile):
+        log.info("creating snpmatch parser file: %s", outFile + '.npz')
+        np.savez(outFile, chr = self.chrs, pos = self.pos, gt = self.gt, wei = self.wei, dp = self.dp)
+
+    def case_interpret_inputs(self, outFile):
+        NumSNPs = len(self.chrs)
+        case = 0
+        note = "Sufficient number of SNPs"
+        if NumSNPs < snpmatch.snp_thres:
+            note = "Attention: low number of SNPs provided"
+            case = 1
+        snpst = np.unique(self.chrs, return_counts=True)
+        snpdict = dict(('%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
+        statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": self.dp}
+        statdict['percent_heterozygosity'] = snpmatch.getHeterozygosity(self.gt)
+        with open(outFile , "w") as out_stats:
+            out_stats.write(json.dumps(statdict))
+
+    @staticmethod
+    def read_bed(inFile, logDebug):
+        log.info("reading the position file")
+        targetSNPs = pd.read_table(inFile, header=None, usecols=[0,1,2])
+        snpCHR = np.array(targetSNPs[0], dtype="string")
+        snpPOS = np.array(targetSNPs[1], dtype=int)
+        snpGT = np.array(targetSNPs[2])
         snpBinary = parseGT(snpGT)
-        snpWEI = np.ones((len(snpsREQ), 3))  ## for homo and het
+        snpWEI = np.ones((len(snpCHR), 3))  ## for homo and het
         snpWEI[np.where(snpBinary != 0),0] = 0
         snpWEI[np.where(snpBinary != 1),2] = 0
         snpWEI[np.where(snpBinary != 2),1] = 0
-    snpCHR = snpCHR[snpsREQ]
-    if 'calldata/DP' in sorted(vcf.keys()):
-        DPmean = np.mean(vcf['calldata/DP'][snpsREQ,0])
-    else:
-        DPmean = "NA"
-    snpPOS = np.array(vcf['variants/POS'][snpsREQ])
-    return (DPmean, snpCHR, snpPOS, snpGT, snpWEI)
+        return((snpCHR, snpPOS, snpGT, snpWEI, "NA"))
 
-def parseInput(inFile, logDebug, outFile = "parser"):
-    if outFile == "parser" or not outFile:
-        outFile = inFile + ".snpmatch"
-    if os.path.isfile(inFile + ".snpmatch.npz"):
-        log.info("snpmatch parser dump found! loading %s", inFile + ".snpmatch.npz")
-        snps = np.load(inFile + ".snpmatch.npz")
-        (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
-    else:
-        _,inType = os.path.splitext(inFile)
-        if inType == '.npz':
-            log.info("loading snpmatch parser file! %s", inFile)
-            snps = np.load(inFile)
-            (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = (snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
+    @staticmethod
+    def read_vcf(inFile, logDebug):
+        if logDebug:
+            vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
         else:
-            log.info('running snpmatch parser!')
-            if inType == '.vcf':
-                (DPmean, snpCHR, snpPOS, snpGT, snpWEI) = readVcf(inFile, logDebug)
-            elif inType == '.bed':
-                (snpCHR, snpPOS, snpGT, snpWEI) = readBED(inFile, logDebug)
-                DPmean = "NA"
-            else:
-                snpmatch.die("input file type %s not supported" % inType)
-            log.info("creating snpmatch parser file: %s", outFile + '.npz')
-            np.savez(outFile, chr = snpCHR, pos = snpPOS, gt = snpGT, wei = snpWEI, dp = DPmean)
-            NumSNPs = len(snpCHR)
-            case = 0
-            note = "Sufficient number of SNPs"
-            if NumSNPs < snpmatch.snp_thres:
-                note = "Attention: low number of SNPs provided"
-                case = 1
-            snpst = np.unique(snpCHR, return_counts=True)
-            snpdict = dict(('Chr%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
-            statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": DPmean}
-            statdict['percent_heterozygosity'] = snpmatch.getHeterozygosity(snpGT)
-            with open(outFile + ".stats.json", "w") as out_stats:
-                out_stats.write(json.dumps(statdict))
-    log.info("done!")
-    return (snpCHR, snpPOS, snpGT, snpWEI, DPmean)
+            import StringIO
+            import sys
+            sys.stderr = StringIO.StringIO()
+            vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
+            sys.stderr = sys.__stderr__
+        try:
+            snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt()[:, 0]
+        except AttributeError:
+            snpmatch.die("input VCF file doesnt have required GT field")
+        snpsREQ = np.where((snpGT != './.') & (snpGT != '.|.'))[0]
+        snpGT = snpGT[snpsREQ]
+        if 'calldata/PL' in sorted(vcf.keys()):
+            snpWEI = np.copy(vcf['calldata/PL'][snpsREQ, 0]).astype('float')
+            snpWEI = snpWEI/(-10)
+            snpWEI = np.exp(snpWEI)
+        else:
+            snpBinary = parseGT(snpGT)
+            snpWEI = np.ones((len(snpsREQ), 3))  ## for homo and het
+            snpWEI[np.where(snpBinary != 0),0] = 0
+            snpWEI[np.where(snpBinary != 1),2] = 0
+            snpWEI[np.where(snpBinary != 2),1] = 0
+        snpCHR = np.array(vcf['variants/CHROM'][snpsREQ], dtype="string")
+        if 'calldata/DP' in sorted(vcf.keys()):
+            DPmean = np.mean(vcf['calldata/DP'][snpsREQ,0])
+        else:
+            DPmean = "NA"
+        snpPOS = np.array(vcf['variants/POS'][snpsREQ])
+        return((snpCHR, snpPOS, snpGT, snpWEI, DPmean))
+
+    def filter_chr_names(self, g):
+        ## provide genotypedata (pygwas genotype object)
+        self.chr_list = np.array(pd.Series(g.chrs).str.replace("chr", "", case=False), dtype="string")
+        self.chrs_nochr = np.array(pd.Series(self.chrs).str.replace("chr", "", case=False), dtype="string")
+        self.filter_inds_ix = np.where( np.in1d( self.chrs_nochr, self.chr_list ) )[0]
+
+
+def potatoParser(inFile, logDebug, outFile = "parser"):
+    inputs = ParseInputs(inFile, logDebug, outFile)
+    return(inputs.chrs, inputs.pos, inputs.gt, inputs.wei, inputs.dp)

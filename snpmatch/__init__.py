@@ -128,7 +128,7 @@ def snpmatch_parser(args):
     if os.path.isfile(args['inFile'] + ".snpmatch.npz"):
       os.remove(args['inFile'] + ".snpmatch.npz")
   from snpmatch.core import parsers
-  parsers.parseInput(inFile = args['inFile'], logDebug =  args['logDebug'], outFile = args['outFile'])
+  parsers.potatoParser(inFile = args['inFile'], logDebug =  args['logDebug'], outFile = args['outFile'])
 
 def genotype_cross(args):
   #checkARGs(args)
