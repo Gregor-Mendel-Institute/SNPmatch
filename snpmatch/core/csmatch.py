@@ -89,7 +89,7 @@ def crossWindower(inputs, GenotypeData, binLen, outFile):
     out_file = open(outFile, 'w')
     bin_inds = 1
     winds_chrs = np.zeros(0, dtype = GenotypeData.chrs.dtype)
-    for e_g, e_s in zip(iter_bins_genome, iter_bins_snps):
+    for e_g, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
         g_bin_pos = GenotypeData.positions[e_g[2]]
         perchrtarSNPpos = inputs.pos[e_s[2]]
         matchedAccInd = np.array(e_g[2], dtype=int)[np.where(np.in1d(g_bin_pos, perchrtarSNPpos))[0]]
@@ -275,7 +275,7 @@ def crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, inFile, b
     iter_bins_snps = get_bins_arrays(inputs.chrs, inputs.pos, binLen)
     bin_inds = 0
     outfile = open(outFile, 'w')
-    for e_b in iter_bins_snps:
+    for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
         # first snp positions which are segregating and are in this window
         reqPOSind = segSNPsind[ np.where( np.in1d(segSNPsind, e_b[2]) )[0] ]
         reqPOS = commonSNPsPOS[reqPOSind]
