@@ -51,14 +51,15 @@ def get_bins_genome(g, binLen):
 def get_bins_arrays(g_chrs, g_snppos, binLen):
     g_chrs = np.char.replace(np.core.defchararray.lower(np.array(g_chrs, dtype="string")), "chr", "")
     g_chrs_uq = np.unique(g_chrs)
-    g_chrs_uq = np.char.replace(np.core.defchararray.lower(np.array(g_chrs_uq[0:len(tair_chrs)], dtype="string")), "chr", "")
-    if len(g_chrs_uq) > 7:
+    matched_tair = np.where( np.in1d(g_chrs_uq, tair_chrs) )[0]
+    if len(matched_tair) == 0:
         snpmatch.die("Please change the genome sizes in csmatch module")
-    if not np.array_equal(g_chrs_uq, np.array(tair_chrs)):
-        snpmatch.die("Please change the genome sizes in csmatch module")
-    for chr_ix in range(len(g_chrs_uq)):
-        chr_pos_ix = np.where(g_chrs == g_chrs_uq[chr_ix])[0]
-        echr_bins = get_bins_echr(chrlen[chr_ix], g_snppos[chr_pos_ix], binLen, chr_pos_ix[0])
+    for chr_ix in range(len(tair_chrs)):
+        chr_pos_ix = np.where(g_chrs == tair_chrs[chr_ix])[0]
+        try:
+            echr_bins = get_bins_echr(chrlen[chr_ix], g_snppos[chr_pos_ix], binLen, chr_pos_ix[0])
+        except:
+            echr_bins = get_bins_echr(chrlen[chr_ix], g_snppos[chr_pos_ix], binLen, 0)
         for e_bin in echr_bins:
             yield((chr_ix, e_bin[0], e_bin[1]))
 
