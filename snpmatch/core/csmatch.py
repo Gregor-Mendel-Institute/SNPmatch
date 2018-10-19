@@ -284,15 +284,15 @@ def crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, inFile, b
         matchedAccInd = reqPOSind[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
         matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
         matchedTarGTs = inputs.gt[matchedTarInd]
-        try:
+        if len(matchedTarInd) == 0:
+            outfile.write("%s\tNA\tNA\tNA\tNA\n" % (bin_inds+1))
+        else:
             TarGTBinary = parsers.parseGT(matchedTarGTs)
             TarGTBinary[np.where(TarGTBinary == 2)[0]] = 4
             genP1 = np.subtract(TarGTBinary, snpsP1[matchedAccInd])
             genP1no = len(np.where(genP1 == 0)[0])
             (geno, pval) = getWindowGenotype(genP1no, len(genP1))
             outfile.write("%s\t%s\t%s\t%s\t%s\n" % (bin_inds+1, genP1no, len(genP1), geno, pval))
-        except:
-            outfile.write("%s\tNA\tNA\tNA\tNA\n" % (bin_inds+1))
         bin_inds += 1
         if bin_inds % 40 == 0:
             log.info("progress: %s windows", bin_inds)
