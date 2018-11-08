@@ -32,6 +32,7 @@ def get_bins_echr(real_chrlen, chr_pos, binLen, rel_ix):
                     yield((bin_bed, result))
                     break
                 ind = ind + 1
+    yield((bin_bed, result))
 
 def get_bins_genome(g, binLen):
     binLen = int(binLen)
