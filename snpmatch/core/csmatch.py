@@ -248,22 +248,28 @@ def potatoCrossIdentifier(args):
     crossIdentifier(inputs, GenotypeData, GenotypeData_acc, args['binLen'], args['outFile'])
     log.info("finished!")
 
-def getWindowGenotype(matchedP1, totalMarkers, lr_thres = 2.706):
+def getWindowGenotype(matchedNos, totalMarkers, lr_thres = 2.706):
+    ## matchedNos == array with matched number of SNPs
     ### Choose lr_thres as 2.706 which is at 0.1 alpha level with 1 degree of freedom
-    pval = 'NA'
+    pval = ''
     geno = 'NA'
-    if totalMarkers > 0:
-        likelihood = snpmatch.GenotyperOutput.calculate_likelihoods([matchedP1, totalMarkers - matchedP1], [totalMarkers, totalMarkers])
-        if np.max(likelihood[1]) > lr_thres:
-            if likelihood[1][0] == 1:
-                geno = 0
-                pval = likelihood[1][1]
-            elif likelihood[1][1] == 1:
-                geno = 1
-                pval = likelihood[1][0]
+    if totalMarkers == 0:
+        return((geno, 'NA'))
+    assert len(matchedNos) == 3
+    likes = snpmatch.GenotyperOutput.calculate_likelihoods(matchedNos, np.repeat(totalMarkers, 3).tolist())
+    for item in likes[1]:
+        if pval == '':
+            pval = pval + "%.2f" % item
         else:
-            geno = 0.5
-            pval = np.max(likelihood[1])
+            pval = pval + ',' + "%.2f" % item
+    if len(np.where( likes[1] == 1 )[0]) > 1 or np.min(likes[1][np.nonzero(likes[1]-1)]) < lr_thres:
+        return((geno, pval))
+    if np.argmin(likes[0]) == 0:
+        geno = 0
+    elif np.argmin(likes[0]) == 1:
+        geno = 0.5
+    else:
+        geno = 1
     return(geno, pval)
 
 def crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, inFile, binLen, outFile, logDebug = True):
@@ -273,27 +279,27 @@ def crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, inFile, b
     # only selecting 0 or 1
     segSNPsind = np.where((snpsP1 != snpsP2) & (snpsP1 >= 0) & (snpsP2 >= 0) & (snpsP1 < 2) & (snpsP2 < 2))[0]
     log.info("number of segregating snps between parents: %s", len(segSNPsind))
-    iter_bins_genome = get_bins_arrays(commonSNPsCHR, commonSNPsPOS, binLen)
+    iter_bins_genome = get_bins_arrays(commonSNPsCHR[segSNPsind], commonSNPsPOS[segSNPsind], binLen)
     iter_bins_snps = get_bins_arrays(inputs.chrs, inputs.pos, binLen)
     bin_inds = 0
     outfile = open(outFile, 'w')
     for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
         # first snp positions which are segregating and are in this window
-        reqPOSind = segSNPsind[ np.where( np.in1d(segSNPsind, e_b[2]) )[0] ]
+        reqPOSind = segSNPsind[e_b[2]]
         reqPOS = commonSNPsPOS[reqPOSind]
         perchrTarPos = inputs.pos[e_s[2]]
         matchedAccInd = reqPOSind[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
         matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
         matchedTarGTs = inputs.gt[matchedTarInd]
         if len(matchedTarInd) == 0:
-            outfile.write("%s\tNA\tNA\tNA\tNA\n" % (bin_inds+1))
+            outfile.write("%s\t%s\t%s\tNA\tNA\n" % (bin_inds+1, len(matchedTarInd), len(reqPOSind)))
         else:
             TarGTBinary = parsers.parseGT(matchedTarGTs)
-            TarGTBinary[np.where(TarGTBinary == 2)[0]] = 4
-            genP1 = np.subtract(TarGTBinary, snpsP1[matchedAccInd])
-            genP1no = len(np.where(genP1 == 0)[0])
-            (geno, pval) = getWindowGenotype(genP1no, len(genP1))
-            outfile.write("%s\t%s\t%s\t%s\t%s\n" % (bin_inds+1, genP1no, len(genP1), geno, pval))
+            matP1no = len(np.where(np.equal( TarGTBinary, snpsP1[matchedAccInd] ))[0])
+            matP2no = len(np.where(np.equal( TarGTBinary, snpsP2[matchedAccInd] ))[0])
+            matHetno = len(np.where(np.equal( TarGTBinary, np.repeat(2, len(matchedAccInd)) ))[0])
+            (geno, pval) = getWindowGenotype([matP1no, matHetno, matP2no], len(matchedTarInd))
+            outfile.write("%s\t%s\t%s\t%s\t%s\n" % (bin_inds+1, len(matchedTarInd), len(reqPOSind), geno, pval))
         bin_inds += 1
         if bin_inds % 40 == 0:
             log.info("progress: %s windows", bin_inds)
