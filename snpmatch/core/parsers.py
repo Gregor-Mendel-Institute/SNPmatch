@@ -9,8 +9,10 @@ import json
 log = logging.getLogger(__name__)
 
 def parseGT(snpGT):
-    first = snpGT[0]
     snpBinary = np.zeros(len(snpGT), dtype = "int8")
+    if len(snpBinary) == 0:
+        return(snpBinary)
+    first = snpGT[0]
     if first.find('|') != -1:
         ## GT is phased
         separator = "|"
@@ -29,7 +31,7 @@ def parseGT(snpGT):
     snpBinary[np.where(snpGT == altGT)[0]] = 1
     snpBinary[np.where((snpGT == hetGT_1) | (snpGT == hetGT_2) )[0]] = 2
     snpBinary[np.where(snpGT == nocall)[0]] = -1
-    return snpBinary
+    return(snpBinary)
 
 class ParseInputs(object):
     ## class object for parsing input files for SNPmatch
