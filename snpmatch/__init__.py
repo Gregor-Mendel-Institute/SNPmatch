@@ -135,7 +135,7 @@ def genotype_cross(args):
   #checkARGs(args)
   if not args['parents']:
     die("parents not specified")
-  csmatch.crossGenotyper(args)
+  csmatch.potatoCrossGenotyper(args)
 
 def snpmatch_paircomparions(args):
     if not args['inFile_1']:

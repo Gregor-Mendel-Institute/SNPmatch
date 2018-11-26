@@ -308,8 +308,91 @@ def crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, inFile, b
     log.info("done!")
     outfile.close()
 
+## New class for genotype cross
+class GenotypeCross(object):
 
-def crossGenotyper(args):
+    def __init__(self, hdf5_acc, parents, father = None, logDebug=True):
+        self.logDebug = logDebug
+        self.get_segregating_snps_parents(hdf5_acc, parents, father)
+
+    def get_segregating_snps_parents(self, hdf5_acc, parents, father):
+        log.info("loading genotype data for parents, and identify segregating SNPs")
+        if father is not None:
+            log.info("input files: %s and %s" % (parents, father))
+            if not os.path.isfile(parents) and os.path.isfile(father):
+                die("either of the input files do not exists, please provide VCF/BED file for parent genotype information")
+            p1_snps = parsers.ParseInputs(inFile = parents, logDebug = self.logDebug)
+            p2_snps = parsers.ParseInputs(inFile = father, logDebug = self.logDebug)
+            commonCHRs_ids = np.union1d(p1_snps.chrs, p2_snps.chrs)
+            commonSNPsCHR = np.zeros(0, dtype=commonCHRs_ids.dtype)
+            commonSNPsPOS = np.zeros(0, dtype=int)
+            snpsP1 = np.zeros(0, dtype='int8')
+            snpsP2 = np.zeros(0, dtype='int8')
+            for i in commonCHRs_ids:
+                perchrP1inds = np.where(p1_snps.chrs == i)[0]
+                perchrP2inds = np.where(p2_snps.chrs == i)[0]
+                perchrPositions = np.union1d(p1_snps.pos[perchrP1inds], p2_snps.pos[perchrP2inds])
+                commonSNPsCHR = np.append(commonSNPsCHR, np.repeat(i, len(perchrPositions)))
+                commonSNPsPOS = np.append(commonSNPsPOS, perchrPositions)
+                perchrsnpsP1_inds = np.where(np.in1d(p1_snps.pos[perchrP1inds], perchrPositions))[0]
+                perchrsnpsP2_inds = np.where(np.in1d(p2_snps.pos[perchrP2inds], perchrPositions))[0]
+                snpsP1 = np.append(snpsP1, parsers.parseGT(p1_snps.gt[perchrsnpsP1_inds]))
+                snpsP2 = np.append(snpsP2, parsers.parseGT(p2_snps.gt[perchrsnpsP2_inds]))
+            log.info("done!")
+        else:
+            ## need to filter the SNPs present in C and M
+            log.info("loading HDF5 file")
+            g_acc = genotype.load_hdf5_genotype_data(hdf5_acc)
+            ## die if either parents are not in the dataset
+            assert len(parents.split("x")) == 2, "parents should be provided as '6091x6191'"
+            try:
+                indP1 = np.where(g_acc.accessions == parents.split("x")[0])[0][0]
+                indP2 = np.where(g_acc.accessions == parents.split("x")[1])[0][0]
+            except:
+                snpmatch.die("parents are not in the dataset")
+            snpsP1 = g_acc.snps[:,indP1]
+            snpsP2 = g_acc.snps[:,indP2]
+            commonSNPsCHR = np.array(g_acc.chromosomes)
+            commonSNPsPOS = np.array(g_acc.positions)
+            log.info("done!")
+        segSNPsind = np.where((snpsP1 != snpsP2) & (snpsP1 >= 0) & (snpsP2 >= 0) & (snpsP1 < 2) & (snpsP2 < 2))[0]
+        log.info("number of segregating snps between parents: %s", len(segSNPsind))
+        self.commonSNPsCHR = commonSNPsCHR[segSNPsind]
+        self.commonSNPsPOS = commonSNPsPOS[segSNPsind]
+        self.snpsP1 = snpsP1[segSNPsind]
+        self.snpsP2 = snpsP2[segSNPsind]
+
+    def genotype_each_cross(self, input_file, output_file, binLen):
+        log.info("running cross genotyper")
+        inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
+        iter_bins_genome = get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, binLen)
+        iter_bins_snps = get_bins_arrays(inputs.chrs, inputs.pos, binLen)
+        bin_inds = 0
+        outfile = open(output_file, 'w')
+        for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
+            # first snp positions which are segregating and are in this window
+            reqPOS = self.commonSNPsPOS[e_b[2]]
+            perchrTarPos = inputs.pos[e_s[2]]
+            matchedAccInd = np.array(e_b[2])[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
+            matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
+            matchedTarGTs = inputs.gt[matchedTarInd]
+            if len(matchedTarInd) == 0:
+                outfile.write("%s\t%s\t%s\tNA\tNA\n" % (bin_inds+1, len(matchedTarInd), len(e_b[2])))
+            else:
+                TarGTBinary = parsers.parseGT(matchedTarGTs)
+                matP1no = len(np.where(np.equal( TarGTBinary, self.snpsP1[matchedAccInd] ))[0])
+                matP2no = len(np.where(np.equal( TarGTBinary, self.snpsP2[matchedAccInd] ))[0])
+                matHetno = len(np.where(np.equal( TarGTBinary, np.repeat(2, len(matchedAccInd)) ))[0])
+                (geno, pval) = getWindowGenotype([matP1no, matHetno, matP2no], len(matchedTarInd))
+                outfile.write("%s\t%s\t%s\t%s\t%s\n" % (bin_inds+1, len(matchedTarInd), len(e_b[2]), geno, pval))
+            bin_inds += 1
+            if bin_inds % 40 == 0:
+                log.info("progress: %s windows", bin_inds)
+        log.info("done!")
+        outfile.close()
+
+
+def potatoCrossGenotyper(args):
     ## Get the VCF file (filtered may be) generated by GATK.
     ## inputs:
     # 1) VCF file
@@ -317,49 +400,5 @@ def crossGenotyper(args):
     # 3) SNP matrix (hdf5 file)
     # 4) Bin length, default as 200Kbp
     # 5) Chromosome length
-    log.info("loading genotype data for parents")
-    if args['father'] is not None:
-        log.info("input files: %s and %s" % (args['parents'], args['father']))
-        if not os.path.isfile(args['parents']) and os.path.isfile(args['father']):
-            die("either of the input files do not exists, please provide VCF/BED file for parent genotype information")
-        p1_snps = parsers.ParseInputs(inFile = args['parents'], logDebug = args['logDebug'])
-        p2_snps = parsers.ParseInputs(inFile = args['father'], logDebug = args['logDebug'])
-        commonCHRs_ids = np.union1d(p1_snps.chrs, p2_snps.chrs)
-        commonSNPsCHR = np.zeros(0, dtype=commonCHRs_ids.dtype)
-        commonSNPsPOS = np.zeros(0, dtype=int)
-        snpsP1 = np.zeros(0, dtype='int8')
-        snpsP2 = np.zeros(0, dtype='int8')
-        for i in commonCHRs_ids:
-            perchrP1inds = np.where(p1_snps.chrs == i)[0]
-            perchrP2inds = np.where(p2_snps.chrs == i)[0]
-            perchrPositions = np.union1d(p1_snps.pos[perchrP1inds], p2_snps.pos[perchrP2inds])
-            commonSNPsCHR = np.append(commonSNPsCHR, np.repeat(i, len(perchrPositions)))
-            commonSNPsPOS = np.append(commonSNPsPOS, perchrPositions)
-            perchrsnpsP1 = np.repeat(-1, len(perchrPositions)).astype('int8')
-            perchrsnpsP2 = np.repeat(-1, len(perchrPositions)).astype('int8')
-            perchrsnpsP1_inds = np.where(np.in1d(p1_snps.pos[perchrP1inds], perchrPositions))[0]
-            perchrsnpsP2_inds = np.where(np.in1d(p2_snps.pos[perchrP2inds], perchrPositions))[0]
-            snpsP1 = np.append(snpsP1, parsers.parseGT(p1_snps.gt[perchrsnpsP1_inds]))
-            snpsP2 = np.append(snpsP2, parsers.parseGT(p2_snps.gt[perchrsnpsP2_inds]))
-        log.info("done!")
-    else:
-        parents = args['parents']
-        ## need to filter the SNPs present in C and M
-        if not args['hdf5accFile']:
-            snpmatch.die("needed a HDF5 genotype file and not specified")
-        log.info("loading HDF5 file")
-        g_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
-        ## die if either parents are not in the dataset
-        #import ipdb; ipdb.set_trace()
-        try:
-            indP1 = np.where(g_acc.accessions == parents.split("x")[0])[0][0]
-            indP2 = np.where(g_acc.accessions == parents.split("x")[1])[0][0]
-        except:
-            snpmatch.die("parents are not in the dataset")
-        snpsP1 = g_acc.snps[:,indP1]
-        snpsP2 = g_acc.snps[:,indP2]
-        commonSNPsCHR = np.array(g_acc.chromosomes)
-        commonSNPsPOS = np.array(g_acc.positions)
-        log.info("done!")
-    log.info("running cross genotyper")
-    crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, args['inFile'], args['binLen'], args['outFile'], args['logDebug'])
+    crossgenotyper = GenotypeCross(args['hdf5accFile'], args['parents'], args['father'], args['logDebug'])
+    crossgenotyper.genotype_each_cross( args['inFile'], args['outFile'], args['binLen'] )
