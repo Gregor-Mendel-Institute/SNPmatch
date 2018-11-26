@@ -2,12 +2,13 @@
   SNPmatch
 """
 import numpy as np
+import scipy as sp
 import numpy.ma
 from pygwas.core import genotype
 import logging
 import sys
 import os
-import parsers
+from . import parsers
 import json
 
 log = logging.getLogger(__name__)
@@ -20,18 +21,21 @@ def die(msg):
     sys.exit(1)
 
 def likeliTest(n, y):
-  p = 0.99999999
-  if n > 0 and n != y and y > 0:
+    ## n == total informative sites
+    ## y == number of matched sites
+    assert y <= n, "provided y is greater than n"
+    p = 0.99999999
+    if n == 0:
+        return(np.nan)
     pS = float(y)/n
-    a = y * np.log(pS/p)
-    b = (n - y) * np.log((1-pS)/(1-p))
-    return(a+b)
-  elif n == y and n > 0:
-    return 1
-  elif y == 0:
-    return likeliTest(n, y + 1)
-  else:
-    return np.nan
+    if y == n:
+        return(1)
+    if y > 0:
+        a = y * np.log(pS/p)
+        b = (n - y) * np.log((1-pS)/(1-p))
+        return(a+b)
+    elif y == 0:
+        return(np.nan)
 
 class GenotyperOutput(object):
     ## class object for main SNPmatch output
@@ -51,10 +55,10 @@ class GenotyperOutput(object):
     @staticmethod
     def calculate_likelihoods(scores, ninfo, amin = "calc"):
         num_lines = len(scores)
-        LikeLiHoods = [likeliTest(ninfo[i], int(scores[i])) for i in range(num_lines)]
-        LikeLiHoods = np.array(LikeLiHoods, dtype = "float")
+        nplikeliTest = np.vectorize(likeliTest,otypes=[float])
+        LikeLiHoods = nplikeliTest(ninfo, scores)
         if amin == "calc":
-            TopHit = np.amin(LikeLiHoods)
+            TopHit = np.nanmin(LikeLiHoods)
         else:
             TopHit = float(amin)
         LikeLiHoodRatios = [LikeLiHoods[i]/TopHit for i in range(num_lines)]

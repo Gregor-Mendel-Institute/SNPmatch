@@ -248,28 +248,30 @@ def potatoCrossIdentifier(args):
     crossIdentifier(inputs, GenotypeData, GenotypeData_acc, args['binLen'], args['outFile'])
     log.info("finished!")
 
-def getWindowGenotype(matchedNos, totalMarkers, lr_thres = 2.706):
+def getWindowGenotype(matchedNos, totalMarkers, lr_thres = 2):
     ## matchedNos == array with matched number of SNPs
     ### Choose lr_thres as 2.706 which is at 0.1 alpha level with 1 degree of freedom
     pval = ''
     geno = 'NA'
-    if totalMarkers == 0:
+    if totalMarkers < 5:
         return((geno, 'NA'))
     assert len(matchedNos) == 3
     likes = snpmatch.GenotyperOutput.calculate_likelihoods(matchedNos, np.repeat(totalMarkers, 3).tolist())
+    if np.array_equal(likes[0], np.repeat(np.nan, 3)):
+        return((geno, 'NA'))
     for item in likes[1]:
         if pval == '':
             pval = pval + "%.2f" % item
         else:
             pval = pval + ',' + "%.2f" % item
-    if len(np.where( likes[1] == 1 )[0]) > 1 or np.min(likes[1][np.nonzero(likes[1]-1)]) < lr_thres:
+    if len(np.where( likes[1] == 1 )[0]) > 1 or np.nanmin(likes[1][np.nonzero(likes[1]-1)]) < lr_thres:
         return((geno, pval))
-    if np.argmin(likes[0]) == 0:
+    if np.nanargmin(likes[0]) == 0:
         geno = 0
-    elif np.argmin(likes[0]) == 1:
-        geno = 0.5
-    else:
+    elif np.nanargmin(likes[0]) == 2:
         geno = 1
+    else:
+        geno = 0.5
     return(geno, pval)
 
 def crossGenotypeWindows(commonSNPsCHR, commonSNPsPOS, snpsP1, snpsP2, inFile, binLen, outFile, logDebug = True):

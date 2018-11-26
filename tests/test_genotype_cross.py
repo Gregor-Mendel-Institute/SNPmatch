@@ -1,6 +1,7 @@
 import pytest
 import numpy as np
 from snpmatch.core import snpmatch
+from snpmatch.core import csmatch
 from snpmatch.core import parsers
 
 
@@ -20,5 +21,4 @@ class TestSNPmatch:
 
     def test_likelihood(self, snp_numbers):
         assert snpmatch.likeliTest(snp_numbers[0], snp_numbers[1]) == 122.8361221819443
-        assert snpmatch.likeliTest(0, 10) is np.nan
-        assert snpmatch.likeliTest(10, 0) is np.nan
+        
