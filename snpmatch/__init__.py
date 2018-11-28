@@ -64,6 +64,8 @@ def get_options(program_license,program_version_message):
   genocross_parser.add_argument("-p", "--parents", dest="parents", help="Parents for the cross, parent1 x parent2")
   genocross_parser.add_argument("-q", "--father", dest="father", help="If given this should be VCF file for the mother (ex., if the cross is parent1 x parent2, parent2.vcf should be the input file. Also -p should be parent1.vcf")
   genocross_parser.add_argument("-b", "--binLength", dest="binLen", help="bin length",type=int, default=200000)
+  genocross_parser.add_argument("--good_samples", dest="good_samples", help="list of sample IDs which need to be present, only works with '-a' option", default=None)
+  genocross_parser.add_argument("--lr_thres", dest="lr_thres", default=1.5, help="Likelihood ratio threshold for genotype calling.")
   genocross_parser.add_argument("-o", "--output", dest="outFile", help="output file")
   genocross_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   genocross_parser.set_defaults(func=genotype_cross)

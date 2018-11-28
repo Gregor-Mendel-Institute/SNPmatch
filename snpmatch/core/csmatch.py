@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 # Arabidopsis chromosome length
 chrlen = np.array((30427671, 19698289, 23459830, 18585056, 26975502, 154478, 154478))
 tair_chrs = ['1', '2', '3', '4', '5']
+mean_recomb_rates = [3.4, 3.6, 3.5, 3.8, 3.6]  ## cM/Mb ## Salome, P et al. 2011
 
 def get_bins_echr(real_chrlen, chr_pos, binLen, rel_ix):
     ind = 0
@@ -251,7 +252,7 @@ def potatoCrossIdentifier(args):
     crossIdentifier(inputs, GenotypeData, GenotypeData_acc, args['binLen'], args['outFile'])
     log.info("finished!")
 
-def getWindowGenotype(matchedNos, totalMarkers, lr_thres = 2):
+def getWindowGenotype(matchedNos, totalMarkers, lr_thres):
     ## matchedNos == array with matched number of SNPs
     ### Choose lr_thres as 2.706 which is at 0.1 alpha level with 1 degree of freedom
     pval = ''
@@ -334,7 +335,7 @@ class GenotypeCross(object):
         log.info("done!")
 
     @staticmethod
-    def get_window_genotype_gts(input_gt, snpsP1_gt, snpsP2_gt):
+    def get_window_genotype_gts(input_gt, snpsP1_gt, snpsP2_gt, lr_thres):
         # input_gt is only '0/0', '0/1', '1/1'
         # snpsP1_gt and snpsP2_gt is either 0, 1 or 2
         num_snps = len(input_gt)
@@ -344,9 +345,11 @@ class GenotypeCross(object):
         matP1no = len(np.where(np.equal( TarGTBinary, snpsP1_gt ))[0])
         matP2no = len(np.where(np.equal( TarGTBinary, snpsP2_gt ))[0])
         matHetno = len(np.where(np.equal( TarGTBinary, np.repeat(2, num_snps) ))[0])
-        return(getWindowGenotype([matP1no, matHetno, matP2no], num_snps))
+        return(getWindowGenotype([matP1no, matHetno, matP2no], num_snps, lr_thres))
 
-    def genotype_each_cross(self, inputs):
+    def genotype_each_cross(self, input_file, lr_thres):
+        ## Input file
+        inputs = parsers.ParseInputs(inFile = input_file, logDebug = args['logDebug'])
         ## Inputs is the ParseInputs class object
         log.info("running cross genotyper")
         iter_bins_genome = get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
@@ -363,7 +366,7 @@ class GenotypeCross(object):
             if len(matchedTarInd) == 0:
                 outfile_str = np.append(outfile_str, "%s\t%s\t%s\tNA\tNA" % (bin_inds+1, len(matchedTarInd), len(e_b[2])) )
             else:
-                (geno, pval) = self.get_window_genotype_gts(matchedTarGTs, self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd])
+                (geno, pval) = self.get_window_genotype_gts(matchedTarGTs, self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd], lr_thres)
                 outfile_str = np.append(outfile_str, "%s\t%s\t%s\t%s\t%s" % (bin_inds+1, len(matchedTarInd), len(e_b[2]), geno, pval))
             bin_inds += 1
             if bin_inds % 40 == 0:
@@ -389,11 +392,11 @@ class GenotypeCross(object):
             find_ix = np.where(good_samples == ef.split("_")[0])[0]
             if len(find_ix) == 0:
                 find_ix = np.where(good_samples == ef.split("_")[0] + ef.split("_")[1] )[0]
-                if len(find_ix) > 0:
-                    good_samples_ix = np.append(good_samples_ix, ef_ix + 2)
+            if len(find_ix) > 0:
+                good_samples_ix = np.append(good_samples_ix, ef_ix + 2)
         return(snpvcf.iloc[:, np.append((0,1), good_samples_ix) ])
 
-    def genotype_cross_all_samples(self, sample_file, good_samples_file=None):
+    def genotype_cross_all_samples(self, sample_file, lr_thres, good_samples_file=None):
         log.info("loading input files!")
         snpvcf = pd.read_table(sample_file)
         snpvcf = self.filter_good_samples(snpvcf, good_samples_file)
@@ -402,20 +405,21 @@ class GenotypeCross(object):
         iter_bins_genome = get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
         iter_bins_snps = get_bins_arrays(np.array(snpvcf.iloc[:,0]), np.array(snpvcf.iloc[:,1]), self.window_size)
         bin_inds = 0
-        outfile_str = np.zeros(0, dtype="string")
+        outfile_str = np.array(('pheno,' + ',' + ',0' * num_samples), dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
+            cm_mid = float(mean_recomb_rates[e_b[0]]) * np.mean(e_b[1]).astype(int) / 1000000
             reqPOS = self.commonSNPsPOS[e_b[2]]
             perchrTarPos = np.array(snpvcf.iloc[e_s[2], 1])
             matchedAccInd = np.array(e_b[2], dtype=int)[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
             matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
             if len(matchedTarInd) == 0:
-                outfile_str = np.append(outfile_str, "%s\t%s%s" % ( tair_chrs[e_b[0]],  np.mean(e_b[1]).astype(int), '\tNA' * num_samples ) )
+                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % ( bin_inds + 1, tair_chrs[e_b[0]],  cm_mid, ',NA' * num_samples ) )
             else:
                 geno_samples = ''
                 for sample_ix in range(num_samples):
-                    (geno, pval) = self.get_window_genotype_gts(np.array(snpvcf.iloc[matchedTarInd, sample_ix + 2]), self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd])
-                    geno_samples = geno_samples + '\t' + str(geno)
-                outfile_str = np.append(outfile_str, "%s\t%s%s" % ( tair_chrs[e_b[0]],  np.mean(e_b[1]).astype(int), geno_samples ) )
+                    (geno, pval) = self.get_window_genotype_gts(np.array(snpvcf.iloc[matchedTarInd, sample_ix + 2]), self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd], lr_thres)
+                    geno_samples = geno_samples + ',' + str(geno)
+                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % ( bin_inds + 1, tair_chrs[e_b[0]],  cm_mid, geno_samples ) )
             bin_inds += 1
             if bin_inds % 40 == 0:
                 log.info("progress: %s windows", bin_inds)
@@ -433,8 +437,7 @@ def potatoCrossGenotyper(args):
     # 5) Chromosome length
     crossgenotyper = GenotypeCross(args['hdf5accFile'], args['parents'], args['binLen'], args['father'], args['logDebug'])
     if args['all_samples']:
-        outfile_str = crossgenotyper.genotype_cross_all_samples( args['inFile'] )
+        outfile_str = crossgenotyper.genotype_cross_all_samples( args['inFile'], args['lr_thres'], args['good_samples'] )
     else:
-        inputs = parsers.ParseInputs(inFile = args['inFile'], logDebug = args['logDebug'])
-        outfile_str = crossgenotyper.genotype_each_cross( inputs )
+        outfile_str = crossgenotyper.genotype_each_cross( args['inFile'], args['lr_thres'] )
     crossgenotyper.write_output_genotype_cross( outfile_str, args['outFile'] )
