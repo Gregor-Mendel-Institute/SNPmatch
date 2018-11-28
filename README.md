@@ -78,16 +78,17 @@ snpmatch inbred -i input_npz -d db.hdf5 -e db.acc.hdf5 -o output_file
 
 SNPmatch can be run directly for *A. thaliana* researchers as a web tool, [AraGeno](http://arageno.gmi.oeaw.ac.at)
 
-###Output files for inbred
+### Output files for inbred
 
 SNPmatch outputs two file,
 1. `output_file.scores.txt` --- tab-separated file
 
+
+|1|2|3|4|5|6|7|8|
 |---|---|---|---|---|---|---|---|
 |8426|4946|4987|0.99|517.57|1.0|5525|4.55|
 |8427|4861|5194|0.93|4897.21|9.46|5525|4.55|
 |6191|4368|4933|0.88|8652.07|16.72|5525|4.55|
-|---|---|---|---|---|---|---|---|
 
 The column information for the table is strain ID, Number of matched SNPs, Total informative SNPs, Probability of match, Likelihood, Likelihood ratio against best hit, Number of SNPs, Average depth of SNPs respectively.
 You can filter the strains that do not match the sample by the likelihood ratio value which is chi-square distributed.
@@ -109,18 +110,18 @@ snpmatch genotype_cross -p parent1.vcf -q parent2.vcf -i input_file -o output_fi
 
 These scripts are implemented based on the *A. thaliana* genome sizes. But the global variable in csmatch [script](https://github.com/Gregor-Mendel-Institute/SNPmatch/blob/master/snpmatch/core/csmatch.py#L19) can be modified to the corresponding genome sizes.
 
-###Output files
+### Output files for cross
 We have three output files for the cross match in SNPmatch
 1. `output_file.scores.txt` --- tab-separated file
 The file is exactly same as explained [before](#Output-files-for-inbred). Additionally, F1 simulated results are appended to the file.
 2. `output_file.windowscore.txt` --- tab-separated file
 The file provides information on the strains that match to input sample for each window across the genome.
 
+|1|2|3|4|5|6|7|8|
 |---|---|---|---|---|---|---|---|
 |1006|11|11|1.0|1.0|14.413599933851167|222|1|
 |1158|11|11|1.0|1.0|14.413599933851167|222|1|
 |1166|11|11|1.0|1.0|14.413599933851167|222|1|
-|---|---|---|---|---|---|---|---|
 
 Here columns are strain ID, number of SNPs matched, Informative SNPs, Probability of match, Likelihood, Likelihood ratio for the strain that matches alternatively, Number of strains that match at this window, window ID (number starting for 1 covering genome linearly).
 Filtering this table by column 7 having 1 would result in homozygous windows.
