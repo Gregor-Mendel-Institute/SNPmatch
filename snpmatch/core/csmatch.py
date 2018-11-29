@@ -252,12 +252,12 @@ def potatoCrossIdentifier(args):
     crossIdentifier(inputs, GenotypeData, GenotypeData_acc, args['binLen'], args['outFile'])
     log.info("finished!")
 
-def getWindowGenotype(matchedNos, totalMarkers, lr_thres):
+def getWindowGenotype(matchedNos, totalMarkers, lr_thres, n_marker_thres = 5):
     ## matchedNos == array with matched number of SNPs
     ### Choose lr_thres as 2.706 which is at 0.1 alpha level with 1 degree of freedom
     pval = ''
     geno = 'NA'
-    if totalMarkers < 5:
+    if totalMarkers < n_marker_thres:
         return((geno, 'NA'))
     assert len(matchedNos) == 3
     if np.array_equal(np.array(matchedNos), np.repeat(0, 3)):
@@ -268,9 +268,11 @@ def getWindowGenotype(matchedNos, totalMarkers, lr_thres):
             pval = pval + "%.2f" % item
         else:
             pval = pval + ',' + "%.2f" % item
-    if len(np.where( likes[1] == 1 )[0]) > 1 or np.nanmin(likes[1][np.nonzero(likes[1]-1)]) < lr_thres:
+    if np.nanmin(likes[1][np.nonzero(likes[1]-1)]) < lr_thres:
         return((geno, pval))
-    if np.nanargmin(likes[0]) == 0:
+    if len(np.where( likes[1] == 1 )[0]) > 1: ## It is matching to multiple
+        geno = 1
+    elif np.nanargmin(likes[0]) == 0:
         geno = 0
     elif np.nanargmin(likes[0]) == 2:
         geno = 2
