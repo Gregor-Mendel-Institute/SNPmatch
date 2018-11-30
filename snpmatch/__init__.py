@@ -11,6 +11,7 @@ import argparse
 import sys
 from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
+from snpmatch.core import genotype_cross
 from snpmatch.core import makedb
 from snpmatch.core import simulate
 import logging, logging.config
@@ -138,7 +139,7 @@ def genotype_cross(args):
   #checkARGs(args)
   if not args['parents']:
     die("parents not specified")
-  csmatch.potatoCrossGenotyper(args)
+  genotype_cross.potatoCrossGenotyper(args)
 
 def snpmatch_paircomparions(args):
     if not args['inFile_1']:
