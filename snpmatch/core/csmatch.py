@@ -268,15 +268,17 @@ def getWindowGenotype(matchedNos, totalMarkers, lr_thres, n_marker_thres = 5):
             pval = pval + "%.2f" % item
         else:
             pval = pval + ',' + "%.2f" % item
-    if np.nanmin(likes[1][np.nonzero(likes[1]-1)]) < lr_thres:
-        return((geno, pval))
     if len(np.where( likes[1] == 1 )[0]) > 1: ## It is matching to multiple
-        geno = 1
-    elif np.nanargmin(likes[0]) == 0:
+        return((1, pval))
+    high_match = np.nanargmin(likes[0])
+    lr_next = np.nanmin(likes[1][np.nonzero(likes[1]-1)])
+    if np.isnan(lr_next):
+        lr_next = lr_thres
+    if np.nanargmin(likes[0]) == 0 and lr_next >= lr_thres:
         geno = 0
-    elif np.nanargmin(likes[0]) == 2:
+    elif np.nanargmin(likes[0]) == 2 and lr_next >= lr_thres:
         geno = 2
-    else:
+    if high_match == 1:
         geno = 1
     return(geno, pval)
 
@@ -351,7 +353,7 @@ class GenotypeCross(object):
 
     def genotype_each_cross(self, input_file, lr_thres):
         ## Input file
-        inputs = parsers.ParseInputs(inFile = input_file, logDebug = args['logDebug'])
+        inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
         ## Inputs is the ParseInputs class object
         log.info("running cross genotyper")
         iter_bins_genome = get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
@@ -360,16 +362,17 @@ class GenotypeCross(object):
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
             # first snp positions which are segregating and are in this window
+            bin_str = tair_chrs[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1])
             reqPOS = self.commonSNPsPOS[e_b[2]]
             perchrTarPos = inputs.pos[e_s[2]]
             matchedAccInd = np.array(e_b[2])[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
             matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
             matchedTarGTs = inputs.gt[matchedTarInd]
             if len(matchedTarInd) == 0:
-                outfile_str = np.append(outfile_str, "%s\t%s\t%s\tNA\tNA" % (bin_inds+1, len(matchedTarInd), len(e_b[2])) )
+                outfile_str = np.append(outfile_str, "%s\t%s\t%s\tNA\tNA" % (bin_str, len(matchedTarInd), len(e_b[2])) )
             else:
                 (geno, pval) = self.get_window_genotype_gts(matchedTarGTs, self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd], lr_thres)
-                outfile_str = np.append(outfile_str, "%s\t%s\t%s\t%s\t%s" % (bin_inds+1, len(matchedTarInd), len(e_b[2]), geno, pval))
+                outfile_str = np.append(outfile_str, "%s\t%s\t%s\t%s\t%s" % (bin_str, len(matchedTarInd), len(e_b[2]), geno, pval))
             bin_inds += 1
             if bin_inds % 40 == 0:
                 log.info("progress: %s windows", bin_inds)
@@ -398,6 +401,14 @@ class GenotypeCross(object):
                 good_samples_ix = np.append(good_samples_ix, ef_ix + 2)
         return(snpvcf.iloc[:, np.append((0,1), good_samples_ix) ])
 
+    @staticmethod
+    def print_ids(snpvcf):
+        all_samples = pd.Series(snpvcf.columns.values[2:]).str.split("_", n = 2, expand=True)
+        if len(np.unique(all_samples.iloc[:,0])) == all_samples.shape[0]:
+            return(all_samples.iloc[:,0].str.cat(sep = ','))
+        all_samples = all_samples.iloc[:,0].map(str) + all_samples.iloc[:,1].map(str)
+        return(all_samples.str.cat(sep = ','))
+
     def genotype_cross_all_samples(self, sample_file, lr_thres, good_samples_file=None):
         log.info("loading input files!")
         snpvcf = pd.read_table(sample_file)
@@ -407,21 +418,23 @@ class GenotypeCross(object):
         iter_bins_genome = get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
         iter_bins_snps = get_bins_arrays(np.array(snpvcf.iloc[:,0]), np.array(snpvcf.iloc[:,1]), self.window_size)
         bin_inds = 0
-        outfile_str = np.array(('pheno,' + ',' + ',0' * num_samples), dtype="string")
+        outfile_str = np.array(('id,,,' + self.print_ids(snpvcf)), dtype="string")
+        outfile_str = np.append(outfile_str, 'pheno,' + ',' + ',0' * num_samples)
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
+            bin_str = tair_chrs[e_b[0]] + ":" + str(e_b[1][0]) + "-" + str(e_b[1][1])
             cm_mid = float(mean_recomb_rates[e_b[0]]) * np.mean(e_b[1]).astype(int) / 1000000
             reqPOS = self.commonSNPsPOS[e_b[2]]
             perchrTarPos = np.array(snpvcf.iloc[e_s[2], 1])
             matchedAccInd = np.array(e_b[2], dtype=int)[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
             matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
             if len(matchedTarInd) == 0:
-                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % ( bin_inds + 1, tair_chrs[e_b[0]],  cm_mid, ',NA' * num_samples ) )
+                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, tair_chrs[e_b[0]],  cm_mid, ',NA' * num_samples ) )
             else:
                 geno_samples = ''
                 for sample_ix in range(num_samples):
                     (geno, pval) = self.get_window_genotype_gts(np.array(snpvcf.iloc[matchedTarInd, sample_ix + 2]), self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd], lr_thres)
                     geno_samples = geno_samples + ',' + str(geno)
-                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % ( bin_inds + 1, tair_chrs[e_b[0]],  cm_mid, geno_samples ) )
+                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, tair_chrs[e_b[0]],  cm_mid, geno_samples ) )
             bin_inds += 1
             if bin_inds % 40 == 0:
                 log.info("progress: %s windows", bin_inds)
