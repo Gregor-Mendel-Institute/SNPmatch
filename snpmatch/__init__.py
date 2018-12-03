@@ -11,7 +11,7 @@ import argparse
 import sys
 from snpmatch.core import snpmatch
 from snpmatch.core import csmatch
-from snpmatch.core import genotype_cross
+from snpmatch.core import genotype_cross as gtm
 from snpmatch.core import makedb
 from snpmatch.core import simulate
 import logging, logging.config
@@ -67,6 +67,7 @@ def get_options(program_license,program_version_message):
   genocross_parser.add_argument("-b", "--binLength", dest="binLen", help="bin length",type=int, default=200000)
   genocross_parser.add_argument("--good_samples", dest="good_samples", help="list of sample IDs which need to be present, only works with '-a' option", default=None)
   genocross_parser.add_argument("--lr_thres", dest="lr_thres", default=1.5, help="Likelihood ratio threshold for genotype calling.")
+  genocross_parser.add_argument("--hmm", dest="hmm", action="store_true", help="Use HMM Viterbi method to determine underlying genotypes.")
   genocross_parser.add_argument("-o", "--output", dest="outFile", help="output file")
   genocross_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   genocross_parser.set_defaults(func=genotype_cross)
@@ -139,7 +140,7 @@ def genotype_cross(args):
   #checkARGs(args)
   if not args['parents']:
     die("parents not specified")
-  genotype_cross.potatoCrossGenotyper(args)
+  gtm.potatoCrossGenotyper(args)
 
 def snpmatch_paircomparions(args):
     if not args['inFile_1']:

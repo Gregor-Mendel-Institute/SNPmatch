@@ -8,7 +8,8 @@ from pygwas.core import genotype
 import pandas as pd
 import logging
 import os
-import snpmatch
+from . import snpmatch
+from . import csmatch
 import parsers
 import json
 import itertools
@@ -125,8 +126,8 @@ class GenotypeCross(object):
         inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
         ## Inputs is the ParseInputs class object
         log.info("running cross genotyper")
-        iter_bins_genome = get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = get_bins_arrays(inputs.chrs, inputs.pos, self.window_size)
+        iter_bins_genome = csmatch.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
+        iter_bins_snps = csmatch.get_bins_arrays(inputs.chrs, inputs.pos, self.window_size)
         bin_inds = 0
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
@@ -148,34 +149,56 @@ class GenotypeCross(object):
         log.info("done!")
         return(outfile_str)
 
-    def genotype_each_cross_hmm(self, input_file, lr_thres):
+    def genotype_each_cross_hmm(self, input_file, n_marker_thres):
         from hmmlearn import hmm
-        r_i_chrs = [0.34, 0.36, 0.35, 0.38, 0.36]
+        r_i = float(self.window_size) * 0.38 /1000000
+        assert r_i < 1, "Provide either small window size or check the mean recombination rate"
+        log.info("recombination fraction between windows: %.2f" % r_i)
         ### The below transition probability is for a intercross, adapted from R/qtl
+        log.info("running HMM")
         transprob = np.array( [[ (1-r_i)**2, 2*r_i*(1-r_i), r_i**2 ],
-                       [r_i*(1-r_i), (1-r_i)**2 + r_i**2, r_i*(1-r_i)],
-                       [ r_i**2, 2*r_i*(1-r_i), (1-r_i)**2 ]]  )
-        model = hmm.GaussianHMM(n_components=3, covariance_type="full")
+                               [r_i*(1-r_i), (1-r_i)**2 + r_i**2, r_i*(1-r_i)],
+                               [ r_i**2, 2*r_i*(1-r_i), (1-r_i)**2 ]] )
+        model = hmm.GaussianHMM(n_components=3, covariance_type="full", init_params="mcs")
         model.startprob_ = np.array([0.25, 0.5, 0.25])
         model.transmat_ = transprob
+        model.means_ = np.array([[1, 0, 0], [0.08, 0.84, 0.08], [0, 0, 1]])
+        model.covars_ = np.tile(np.identity(3), (3, 1, 1))
         ## Choose a small window that no recombination occur
         inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
         ## Inputs is the ParseInputs class object
-        log.info("running cross genotyper")
-        iter_bins_genome = get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = get_bins_arrays(inputs.chrs, inputs.pos, self.window_size)
-        bin_inds = 0
+        log.info("Transision matrix: %s" % transprob)
+        iter_bins_genome = csmatch.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
+        iter_bins_snps = csmatch.get_bins_arrays(inputs.chrs, inputs.pos, self.window_size)
+        allGenotypeProbs = {}
+        for ec in tair_chrs:
+            allGenotypeProbs[ec] = np.zeros((0, 3))
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
             # first snp positions which are segregating and are in this window
             bin_str = tair_chrs[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1])
             reqPOS = self.commonSNPsPOS[e_b[2]]
             perchrTarPos = inputs.pos[e_s[2]]
-            matchedAccInd = np.array(e_b[2])[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
-            matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
-            matchedTarGTs = inputs.gt[matchedTarInd]
-            import ipdb; ipdb.set_trace()
-
+            ebAccsInds = np.array(e_b[2])[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
+            ebTarInds = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
+            ebTarGTs = parsers.parseGT(inputs.gt[ebTarInds])
+            if len(ebTarInds) <= n_marker_thres:
+                ebin_prob = np.array((0, 0, 0))
+            else:
+                matP1no = float(len(np.where(np.equal( ebTarGTs, self.snpsP1[ebAccsInds] ))[0]))/len(ebTarInds)
+                matP2no = float(len(np.where(np.equal( ebTarGTs, self.snpsP2[ebAccsInds] ))[0]))/len(ebTarInds)
+                matHetno = float(len(np.where(np.equal( ebTarGTs, np.repeat(2, len(ebTarInds)) ))[0]))/len(ebTarInds)
+                ebin_prob = np.array( (matP1no,matHetno,matP2no) )
+            allGenotypeProbs[tair_chrs[e_b[0]]] = np.vstack( (allGenotypeProbs[tair_chrs[e_b[0]]], ebin_prob) )
+            #allGenotypeProbs =
+            outfile_str = np.append(outfile_str, "%s\t%s\t%s" % (bin_str, len(ebTarInds), len(e_b[2])))
+        allGenos = np.zeros(0)
+        allGenos_prob = np.zeros(0, dtype="string")
+        for ec in tair_chrs:
+            allGenos = np.append(allGenos, model.predict( allGenotypeProbs[ec] ))
+            allGenos_prob = np.append(allGenos_prob, pd.DataFrame(allGenotypeProbs[ec]).apply(lambda x: ','.join(x.round(2).astype(str)), axis=1) )
+        outfile_str  = np.array(pd.Series(outfile_str) + "\t" + pd.Series(allGenos).astype(int).astype(str) + "\t" + pd.Series(allGenos_prob) )
+        return(outfile_str)
 
 
     @staticmethod
@@ -252,6 +275,8 @@ def potatoCrossGenotyper(args):
     crossgenotyper = GenotypeCross(args['hdf5accFile'], args['parents'], args['binLen'], args['father'], args['logDebug'])
     if args['all_samples']:
         outfile_str = crossgenotyper.genotype_cross_all_samples( args['inFile'], args['lr_thres'], args['good_samples'] )
+    elif args['hmm']:
+        outfile_str = crossgenotyper.genotype_each_cross_hmm( args['inFile'], 5 )
     else:
-        outfile_str = crossgenotyper.genotype_each_cross_hmm( args['inFile'], args['lr_thres'] )
+        outfile_str = crossgenotyper.genotype_each_cross( args['inFile'], args['lr_thres'] )
     crossgenotyper.write_output_genotype_cross( outfile_str, args['outFile'] )
