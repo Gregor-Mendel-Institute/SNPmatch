@@ -108,6 +108,15 @@ class GenotypeCross(object):
         self.snpsP2 = snpsP2[segSNPsind]
         log.info("done!")
 
+    def _get_common_positions_ixs(self, accs_ix, sample_ix):
+        ## Make sure you have inputs loaded
+        reqAccsPOS = self.commonSNPsPOS[accs_ix]
+        reqTarPos = self._inputs.pos[sample_ix]
+        commonPOS = np.intersect1d( reqAccsPOS, reqTarPos )
+        matchedAccInd = np.array(accs_ix)[ np.where( np.in1d(reqAccsPOS, reqTarPos) )[0] ]
+        matchedTarInd = np.array(sample_ix)[ np.where( np.in1d(reqTarPos, reqAccsPOS) )[0] ]
+        return((matchedAccInd, matchedTarInd))
+
     @staticmethod
     def get_window_genotype_gts(input_gt, snpsP1_gt, snpsP2_gt, lr_thres):
         # input_gt is only '0/0', '0/1', '1/1'
@@ -123,24 +132,21 @@ class GenotypeCross(object):
 
     def genotype_each_cross(self, input_file, lr_thres):
         ## Input file
-        inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
+        self._inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
         ## Inputs is the ParseInputs class object
         log.info("running cross genotyper")
         iter_bins_genome = csmatch.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = csmatch.get_bins_arrays(inputs.chrs, inputs.pos, self.window_size)
+        iter_bins_snps = csmatch.get_bins_arrays(self._inputs.chrs, self._inputs.pos, self.window_size)
         bin_inds = 0
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
             # first snp positions which are segregating and are in this window
             bin_str = tair_chrs[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1])
-            reqPOS = self.commonSNPsPOS[e_b[2]]
-            perchrTarPos = inputs.pos[e_s[2]]
-            matchedAccInd = np.array(e_b[2])[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
-            matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
-            matchedTarGTs = inputs.gt[matchedTarInd]
+            matchedAccInd, matchedTarInd = self._get_common_positions_ixs( e_b[2], e_s[2] )
             if len(matchedTarInd) == 0:
                 outfile_str = np.append(outfile_str, "%s\t%s\t%s\tNA\tNA" % (bin_str, len(matchedTarInd), len(e_b[2])) )
             else:
+                matchedTarGTs = self._inputs.gt[matchedTarInd]
                 (geno, pval) = self.get_window_genotype_gts(matchedTarGTs, self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd], lr_thres)
                 outfile_str = np.append(outfile_str, "%s\t%s\t%s\t%s\t%s" % (bin_str, len(matchedTarInd), len(e_b[2]), geno, pval))
             bin_inds += 1
@@ -183,25 +189,21 @@ class GenotypeCross(object):
         log.info("Transision matrix: %s" % transprob)
         model.means_ = np.array( [ [1, 0, 0], [0, 1, 0], [0, 0, 1] ] )
         model.covars_ = np.tile(np.identity(3), (3, 1, 1))
-        allSNPProbs = {}
         allSNPGenos = np.zeros(0, dtype=int)
         for ec, eclen in itertools.izip(tair_chrs, chrlen):
             reqPOSind =  np.where(self.commonSNPsCHR == ec)[0]
-            reqPOS = self.commonSNPsPOS[reqPOSind]
             reqTARind = np.where( self._inputs.g_chrs == ec )[0]
-            perchrTarPos = self._inputs.pos[reqTARind]
-            ebAccsInds_rel = np.where( np.in1d(reqPOS, perchrTarPos) )[0]
-            ebAccsInds = reqPOSind[ ebAccsInds_rel ]
-            ebTarInds = reqTARind[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
-            allSNPProbs[ec] = np.zeros((len(reqPOSind), 3))
+            ebAccsInds, ebTarInds = self._get_common_positions_ixs(reqPOSind, reqTARind)
+            eb_SNPprobs = np.zeros((len(reqPOSind), 3))
             ebin_prob = self.get_probabilities_ebin(self._inputs.gt[ebTarInds], self.snpsP1[ebAccsInds], self.snpsP2[ebAccsInds])
-            allSNPProbs[ec][ebAccsInds_rel,] = ebin_prob
-            allSNPGenos = np.append(allSNPGenos, model.predict( allSNPProbs[ec] ))
+            eb_SNPprobs[ebAccsInds - reqPOSind[0],] = ebin_prob
+            allSNPGenos = np.append(allSNPGenos, model.predict( eb_SNPprobs ))
         iter_bins_genome = csmatch.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
         iter_bins_snps = csmatch.get_bins_arrays(self._inputs.chrs, self._inputs.pos, self.window_size)
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
-            bin_str = tair_chrs[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1]) + "\t" + str(len(e_s[2])) + "\t" + str(len(e_b[2]))
+            matchedAccInd, matchedTarInd = self._get_common_positions_ixs( e_b[2], e_s[2] )
+            bin_str = tair_chrs[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1]) + "\t" + str(len(matchedTarInd)) + "\t" + str(len(e_b[2]))
             t_genos = np.unique(allSNPGenos[e_b[2]])
             t_genos_nums = pd.Series([ len( np.where( allSNPGenos[e_b[2]] == e )[0] )  for e in [0, 1, 2]]).astype(str).str.cat(sep=",")
             if len(e_b[2]) > 0:
