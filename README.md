@@ -68,10 +68,10 @@ VCF file in a default format in the [link](http://gatkforums.broadinstitute.org/
 SNPmatch can be run as bash commands given below. A detailed manual for each command with -h.
 
 ```bash
-snpmatch inbred -i input_file -d db.hdf5 -e db.acc.hdf5 -o output_file
+snpmatch inbred -v -i input_file -d db.hdf5 -e db.acc.hdf5 -o output_file
 # or
-snpmatch parser -i input_file -o input_npz
-snpmatch inbred -i input_npz -d db.hdf5 -e db.acc.hdf5 -o output_file
+snpmatch parser -v -i input_file -o input_npz
+snpmatch inbred -v -i input_npz -d db.hdf5 -e db.acc.hdf5 -o output_file
 ```
 
 ### AraGeno
@@ -101,11 +101,8 @@ It might be easier to parse this file using [json editor](https://docs.python.or
 SNPmatch can be used to identify hybrid individuals when parental strains are present in database. For such individuals, SNPmatch can be run in windows across the genome. The commands used to run are given below
 
 ```bash
-snpmatch cross -d db.hdf5 -e db.acc.hdf5 -i input_file -b window_size_in_bp -o output_file
+snpmatch cross -v -d db.hdf5 -e db.acc.hdf5 -i input_file -b window_size_in_bp -o output_file
 #to identify the windows matching to each parent in a hybrid
-snpmatch genotype_cross -e db.acc.hdf5 -p parent1xparent2 -i input_file -o output_file
-# or if parents have VCF files individually
-snpmatch genotype_cross -p parent1.vcf -q parent2.vcf -i input_file -o output_file
 ```
 
 These scripts are implemented based on the *A. thaliana* genome sizes. But the global variable in csmatch [script](https://github.com/Gregor-Mendel-Institute/SNPmatch/blob/master/snpmatch/core/csmatch.py#L19) can be modified to the corresponding genome sizes.
@@ -131,19 +128,36 @@ Filtering this table by column 7 having 1 would result in homozygous windows.
 The file containing the list of matched strains, list of homozygous windows and strains matched to them and along with a simple interpretation.
 
 
+## Identifying underlying haplotype for a experimental cross
+
+For a given hybird sample and its parents, SNPmatch can determine the underlying haplotype structure (homozygous or heterozygous).
+
+```bash
+snpmatch genotype_cross -v -e db.acc.hdf5 -p "parent1xparent2" -i input_file -o output_file -b window_size
+# or if parents have VCF files individually
+snpmatch genotype_cross -v -p parent1.vcf -q parent2.vcf -i input_file -o output_file -b window_size
+```
+
+One can implement this by considering a Markhof chain (HMM, requires [hmmlearn](https://github.com/hmmlearn/hmmlearn) python package), by running above command using `--hmm`. The starting probabilities are based on mendel segregation (1:2:1, for F2), might be necessary to change them when implementing for higher crosses. The transition probability matrix is adapted from R/qtl (Browman 2009, doi:10.1007/978-0-387-92125-9).
+
+The output file is a tab delimited file as below.
+
+|1|2|3|4|5|6|7|
+|---|---|---|---|---|---|---|
+1|1|300000|14|1114|NA|1.47,1.64,1.00|
+1|300001|600000|19|1248|2|2.46,2.29,1.00|
+1|600001|900000|8|1018|2|nan,3.28,1.00|
+1|900001|1200000|15|1036|2|2.83,2.59,1.00|
+1|1200001|1500000|12|995| 2|2.71,2.71,1.00|
+
+The columns are Chromosome ID, start position of window, end position, number of SNPs from sample in a window, number of segregating SNPs, underlying genotype (0, 1, 2 for homozygous parent1, heterozygous and homozygous parent2), likelihood ratio test statistic for each genotype (or number of SNPs each genotype under HMM).
+
 ## Contributing
 1. Fork it!
 2. Create your feature branch: `git checkout -b my-new-feature`
 3. Commit your changes: `git commit -am 'Add some feature'`
 4. Push to the branch: `git push origin my-new-feature`
 5. Submit a pull request :D
-
-## History
-
-- 1.9.2: Stable version, 24-08-2017
-- 2.0.0: Stable version, 26-01-2018
-- 2.1.0: Stable version, 09-08-2018
-
 
 ## Credits
 

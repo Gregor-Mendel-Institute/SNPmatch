@@ -17,7 +17,7 @@ import itertools
 log = logging.getLogger(__name__)
 
 # Arabidopsis chromosome length
-chrlen = np.array((30427671, 19698289, 23459830, 18585056, 26975502, 154478, 154478))
+chrlen = np.array((30427671, 19698289, 23459830, 18585056, 26975502))
 tair_chrs = ['1', '2', '3', '4', '5']
 mean_recomb_rates = [3.4, 3.6, 3.5, 3.8, 3.6]  ## cM/Mb ## Salome, P et al. 2011
 
@@ -149,55 +149,68 @@ class GenotypeCross(object):
         log.info("done!")
         return(outfile_str)
 
+    @staticmethod
+    def get_probabilities_ebin(input_gt, snpsP1_gt, snpsP2_gt, error_prob = 0.01):
+        num_snps = len(input_gt)
+        ebTarGTs = parsers.parseGT(input_gt)
+        ebPolarised = np.zeros(num_snps, dtype=int)
+        ebPolarised[np.where(np.equal( ebTarGTs, snpsP1_gt ))[0] ] = 0
+        ebPolarised[np.where(np.equal( ebTarGTs, snpsP2_gt ))[0] ] = 2
+        ebPolarised[np.where(np.equal( ebTarGTs, np.repeat(2, num_snps) ))[0] ] = 1
+        eb_probs = np.repeat(error_prob / 2, num_snps * 3).reshape((-3, 3))
+        for i_ix in range(num_snps):
+            eb_probs[i_ix,ebPolarised[i_ix]] = 1 - error_prob
+        return( eb_probs )
+
+
     def genotype_each_cross_hmm(self, input_file, n_marker_thres):
+        self._inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
+        ## Inputs is the ParseInputs class object
+        self._inputs.get_chr_list()
         from hmmlearn import hmm
-        r_i = float(self.window_size) * 0.38 /1000000
-        assert r_i < 1, "Provide either small window size or check the mean recombination rate"
-        log.info("recombination fraction between windows: %.2f" % r_i)
         ### The below transition probability is for a intercross, adapted from R/qtl
         log.info("running HMM")
-        transprob = np.array( [[ (1-r_i)**2, 2*r_i*(1-r_i), r_i**2 ],
-                               [r_i*(1-r_i), (1-r_i)**2 + r_i**2, r_i*(1-r_i)],
-                               [ r_i**2, 2*r_i*(1-r_i), (1-r_i)**2 ]] )
-        model = hmm.GaussianHMM(n_components=3, covariance_type="full", init_params="mcs")
+        #r_i = float(self.window_size) * 0.38 /1000000
+        r_i = 4000 * 3.8 /1000000
+        e_p = 0.01
+        assert r_i < 1, "Provide either small window size or check the mean recombination rate"
+        log.info("recombination fraction between windows: %.2f" % r_i)
+        transprob = np.array( [[ (1-r_i)**2, 2*r_i*(1-r_i), r_i**2 ], [r_i*(1-r_i), (1-r_i)**2 + r_i**2, r_i*(1-r_i)], [ r_i**2, 2*r_i*(1-r_i), (1-r_i)**2 ]] )
+        log.info("error rate for genotyping: %.2f" % e_p)
+        model = hmm.GaussianHMM(n_components=3, covariance_type="full", n_iter = 1000)
         model.startprob_ = np.array([0.25, 0.5, 0.25])
         model.transmat_ = transprob
-        model.means_ = np.array([[1, 0, 0], [0.08, 0.84, 0.08], [0, 0, 1]])
-        model.covars_ = np.tile(np.identity(3), (3, 1, 1))
-        ## Choose a small window that no recombination occur
-        inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
-        ## Inputs is the ParseInputs class object
         log.info("Transision matrix: %s" % transprob)
+        model.means_ = np.array( [ [1, 0, 0], [0, 1, 0], [0, 0, 1] ] )
+        model.covars_ = np.tile(np.identity(3), (3, 1, 1))
+        allSNPProbs = {}
+        allSNPGenos = np.zeros(0, dtype=int)
+        for ec, eclen in itertools.izip(tair_chrs, chrlen):
+            reqPOSind =  np.where(self.commonSNPsCHR == ec)[0]
+            reqPOS = self.commonSNPsPOS[reqPOSind]
+            reqTARind = np.where( self._inputs.g_chrs == ec )[0]
+            perchrTarPos = self._inputs.pos[reqTARind]
+            ebAccsInds_rel = np.where( np.in1d(reqPOS, perchrTarPos) )[0]
+            ebAccsInds = reqPOSind[ ebAccsInds_rel ]
+            ebTarInds = reqTARind[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
+            allSNPProbs[ec] = np.zeros((len(reqPOSind), 3))
+            ebin_prob = self.get_probabilities_ebin(self._inputs.gt[ebTarInds], self.snpsP1[ebAccsInds], self.snpsP2[ebAccsInds])
+            allSNPProbs[ec][ebAccsInds_rel,] = ebin_prob
+            allSNPGenos = np.append(allSNPGenos, model.predict( allSNPProbs[ec] ))
         iter_bins_genome = csmatch.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = csmatch.get_bins_arrays(inputs.chrs, inputs.pos, self.window_size)
-        allGenotypeProbs = {}
-        for ec in tair_chrs:
-            allGenotypeProbs[ec] = np.zeros((0, 3))
+        iter_bins_snps = csmatch.get_bins_arrays(self._inputs.chrs, self._inputs.pos, self.window_size)
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
-            # first snp positions which are segregating and are in this window
-            bin_str = tair_chrs[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1])
-            reqPOS = self.commonSNPsPOS[e_b[2]]
-            perchrTarPos = inputs.pos[e_s[2]]
-            ebAccsInds = np.array(e_b[2])[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
-            ebTarInds = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
-            ebTarGTs = parsers.parseGT(inputs.gt[ebTarInds])
-            if len(ebTarInds) <= n_marker_thres:
-                ebin_prob = np.array((0, 0, 0))
+            bin_str = tair_chrs[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1]) + "\t" + str(len(e_s[2])) + "\t" + str(len(e_b[2]))
+            t_genos = np.unique(allSNPGenos[e_b[2]])
+            t_genos_nums = pd.Series([ len( np.where( allSNPGenos[e_b[2]] == e )[0] )  for e in [0, 1, 2]]).astype(str).str.cat(sep=",")
+            if len(e_b[2]) > 0:
+                if len(t_genos) == 1:
+                    outfile_str = np.append(outfile_str, "%s\t%s\t%s" % (bin_str, t_genos[0], t_genos_nums) )
+                else:
+                    outfile_str = np.append(outfile_str, "%s\t%s\t%s" % (bin_str, 1, t_genos_nums) )
             else:
-                matP1no = float(len(np.where(np.equal( ebTarGTs, self.snpsP1[ebAccsInds] ))[0]))/len(ebTarInds)
-                matP2no = float(len(np.where(np.equal( ebTarGTs, self.snpsP2[ebAccsInds] ))[0]))/len(ebTarInds)
-                matHetno = float(len(np.where(np.equal( ebTarGTs, np.repeat(2, len(ebTarInds)) ))[0]))/len(ebTarInds)
-                ebin_prob = np.array( (matP1no,matHetno,matP2no) )
-            allGenotypeProbs[tair_chrs[e_b[0]]] = np.vstack( (allGenotypeProbs[tair_chrs[e_b[0]]], ebin_prob) )
-            #allGenotypeProbs =
-            outfile_str = np.append(outfile_str, "%s\t%s\t%s" % (bin_str, len(ebTarInds), len(e_b[2])))
-        allGenos = np.zeros(0)
-        allGenos_prob = np.zeros(0, dtype="string")
-        for ec in tair_chrs:
-            allGenos = np.append(allGenos, model.predict( allGenotypeProbs[ec] ))
-            allGenos_prob = np.append(allGenos_prob, pd.DataFrame(allGenotypeProbs[ec]).apply(lambda x: ','.join(x.round(2).astype(str)), axis=1) )
-        outfile_str  = np.array(pd.Series(outfile_str) + "\t" + pd.Series(allGenos).astype(int).astype(str) + "\t" + pd.Series(allGenos_prob) )
+                outfile_str = np.append(outfile_str, "%s\t%s\t%s" % (bin_str, 'NA', 'NA' ) )
         return(outfile_str)
 
 
