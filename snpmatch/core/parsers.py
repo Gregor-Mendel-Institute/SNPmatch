@@ -103,7 +103,15 @@ class ParseInputs(object):
         return((snpCHR, snpPOS, snpGT, snpWEI, "NA"))
 
     @staticmethod
-    def read_vcf(inFile, logDebug):
+    def get_wei_from_GT(snpGT):
+        snpBinary = parseGT(snpGT)
+        snpWEI = np.ones((len(snpGT), 3))  ## for homo and het
+        snpWEI[np.where(snpBinary != 0),0] = 0
+        snpWEI[np.where(snpBinary != 1),2] = 0
+        snpWEI[np.where(snpBinary != 2),1] = 0
+        return(snpWEI)
+
+    def read_vcf(self, inFile, logDebug):
         if logDebug:
             vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
         else:
@@ -120,14 +128,12 @@ class ParseInputs(object):
         snpGT = snpGT[snpsREQ]
         if 'calldata/PL' in sorted(vcf.keys()):
             snpWEI = np.copy(vcf['calldata/PL'][snpsREQ, 0]).astype('float')
+            missing_pls = np.all(snpWEI == -1, axis = 1)
             snpWEI = snpWEI/(-10)
             snpWEI = np.exp(snpWEI)
+            snpWEI[missing_pls,] = self.get_wei_from_GT(snpGT[missing_pls])
         else:
-            snpBinary = parseGT(snpGT)
-            snpWEI = np.ones((len(snpsREQ), 3))  ## for homo and het
-            snpWEI[np.where(snpBinary != 0),0] = 0
-            snpWEI[np.where(snpBinary != 1),2] = 0
-            snpWEI[np.where(snpBinary != 2),1] = 0
+            snpWEI = self.get_wei_from_GT(snpGT)
         snpCHR = np.array(vcf['variants/CHROM'][snpsREQ], dtype="string")
         if 'calldata/DP' in sorted(vcf.keys()):
             DPmean = np.mean(vcf['calldata/DP'][snpsREQ,0])
@@ -145,7 +151,7 @@ class ParseInputs(object):
     def get_chr_list(self):
         self.g_chrs = np.char.replace(np.core.defchararray.lower(np.array(self.chrs, dtype="string")), "chr", "")
         self.g_chrs_uq = np.unique(self.g_chrs)
-        
+
 
 def potatoParser(inFile, logDebug, outFile = "parser"):
     inputs = ParseInputs(inFile, logDebug, outFile)

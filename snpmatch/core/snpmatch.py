@@ -165,8 +165,6 @@ def genotyper(inputs, hdf5File, hdf5accFile, outFile):
     overlap = float(NumMatSNPs)/len(inputs.filter_inds_ix)
     result = GenotyperOutput(GenotypeData.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs, inputs.dp)
     result.print_out_table( outFile + '.scores.txt' )
-    if not outFile:
-        outFile = "genotyper"
     result.print_json_output( outFile + ".matches.json" )
     getHeterozygosity(inputs.gt[overlappedInds], outFile + ".matches.json")
     return(result)
@@ -181,11 +179,15 @@ def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
     inputs_1 = parsers.ParseInputs(inFile = inFile_1, logDebug = logDebug)
     inputs_2 = parsers.ParseInputs(inFile = inFile_2, logDebug = logDebug)
     snpmatch_stats = {}
-    unique_1, unique_2, common, scores = 0, 0, 0, 0
-    common_chrs = np.intersect1d(np.unique(inputs_1.chrs), np.unique(inputs_2.chrs))
+    unique_1, unique_2 = 0, 0
+    common = np.zeros(0, dtype=int)
+    scores = np.zeros(0, dtype=int)
+    inputs_1.get_chr_list()
+    inputs_2.get_chr_list()
+    common_chrs = np.intersect1d(inputs_1.g_chrs_uq, inputs_2.g_chrs_uq)
     for i in common_chrs:
-        perchrTarPosInd1 = np.where(inputs_1.chrs == i)[0]
-        perchrTarPosInd2 = np.where(inputs_2.chrs == i)[0]
+        perchrTarPosInd1 = np.where(inputs_1.g_chrs == i)[0]
+        perchrTarPosInd2 = np.where(inputs_2.g_chrs == i)[0]
         log.info("Analysing chromosome %s positions", i)
         perchrtarSNPpos1 = inputs_1.pos[perchrTarPosInd1]
         perchrtarSNPpos2 = inputs_2.pos[perchrTarPosInd2]
@@ -193,10 +195,13 @@ def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
         matchedAccInd2 = np.where(np.in1d(perchrtarSNPpos2, perchrtarSNPpos1))[0]
         unique_1 = unique_1 + len(perchrTarPosInd1) - len(matchedAccInd1)
         unique_2 = unique_2 + len(perchrTarPosInd2) - len(matchedAccInd2)
-        common = common + len(matchedAccInd1)
-        scores = scores + np.sum(np.array(inputs_1.gt[matchedAccInd1] == inputs_2.gt[matchedAccInd2], dtype = int))
+        t_common = len(matchedAccInd1)
+        t_scores = np.sum(np.array(inputs_1.gt[matchedAccInd1] == inputs_2.gt[matchedAccInd2], dtype = int))
+        snpmatch_stats[i] = [float(t_scores)/t_common, t_common]
+        common = np.append(common, t_common)
+        scores = np.append(scores, t_scores)
     snpmatch_stats['unique'] = {"%s" % os.path.basename(inFile_1): [float(unique_1)/len(inputs_1.chrs), len(inputs_1.chrs)], "%s" % os.path.basename(inFile_2): [float(unique_2)/len(inputs_2.chrs), len(inputs_2.chrs)]}
-    snpmatch_stats['matches'] = [float(scores)/common, common]
+    snpmatch_stats['matches'] = [float(np.sum(scores))/np.sum(common), np.sum(common)]
     if not outFile:
         outFile = "genotyper"
     log.info("writing output in a file: %s" % outFile + ".matches.json")

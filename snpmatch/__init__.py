@@ -46,7 +46,7 @@ def get_options(program_license,program_version_message):
   inbred_parser.add_argument("-d", "--hdf5_file", dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   inbred_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
   inbred_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
-  inbred_parser.add_argument("-o", "--output", dest="outFile", help="Output file with the probability scores")
+  inbred_parser.add_argument("-o", "--output", dest="outFile", default="identify_inbred", help="Output file with the probability scores")
   inbred_parser.set_defaults(func=snpmatch_inbred)
 
   cross_parser = subparsers.add_parser('cross', help="SNPmatch on the crosses (F2s and F3s) of A. thaliana")
@@ -55,7 +55,7 @@ def get_options(program_license,program_version_message):
   cross_parser.add_argument("-e", "--hdf5_acc_file", dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
   cross_parser.add_argument("-b", "--binLength", dest="binLen", help="Length of bins to calculate the likelihoods", default=300000, type=int)
   cross_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
-  cross_parser.add_argument("-o", "--output", dest="outFile", help="Output files with the probability scores and scores along windows")
+  cross_parser.add_argument("-o", "--output", dest="outFile", default="identify_cross", help="Output files with the probability scores and scores along windows")
   cross_parser.set_defaults(func=snpmatch_cross)
 
   genocross_parser = subparsers.add_parser('genotype_cross', help="Genotype the crosses by windows given parents")
@@ -68,7 +68,7 @@ def get_options(program_license,program_version_message):
   genocross_parser.add_argument("--good_samples", dest="good_samples", help="list of sample IDs which need to be present, only works with '-a' option", default=None)
   genocross_parser.add_argument("--lr_thres", dest="lr_thres", default=1.5, help="Likelihood ratio threshold for genotype calling.")
   genocross_parser.add_argument("--hmm", dest="hmm", action="store_true", help="Use HMM Viterbi method to determine underlying genotypes.")
-  genocross_parser.add_argument("-o", "--output", dest="outFile", help="output file")
+  genocross_parser.add_argument("-o", "--output", dest="outFile", default="genotype_cross", help="output file")
   genocross_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   genocross_parser.set_defaults(func=genotype_cross)
 
@@ -82,7 +82,7 @@ def get_options(program_license,program_version_message):
   pairparser.add_argument("-i", "--input_file_1", dest="inFile_1", help="VCF/BED file for the variants in the sample one")
   pairparser.add_argument("-j", "--input_file_2", dest="inFile_2", help="VCF/BED file for the variants in the sample two")
   pairparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
-  pairparser.add_argument("-o", "--output", dest="outFile", help="output json file")
+  pairparser.add_argument("-o", "--output", dest="outFile", default="pairsnp", help="output json file")
   pairparser.set_defaults(func=snpmatch_paircomparions)
 
   makedbparser = subparsers.add_parser('makedb', help="Create database files from given VCF, only give biallelic SNPs")
