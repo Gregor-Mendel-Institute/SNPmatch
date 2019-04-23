@@ -36,14 +36,14 @@ def parseGT(snpGT):
 class ParseInputs(object):
     ## class object for parsing input files for SNPmatch
 
-    def __init__(self, inFile, logDebug, outFile = "parser" ):
+    def __init__(self, inFile, logDebug=True, outFile = "parser" ):
         if outFile == "parser" or not outFile:
             outFile = inFile + ".snpmatch"
         if os.path.isfile(inFile + ".snpmatch.npz"):
             log.info("snpmatch parser dump found! loading %s", inFile + ".snpmatch.npz")
             snps = np.load(inFile + ".snpmatch.npz")
             self.load_snp_info(snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
-        else:
+        elif os.path.isfile(inFile):
             _,inType = os.path.splitext(inFile)
             if inType == '.npz':
                 log.info("loading snpmatch parser file! %s", inFile)
