@@ -23,7 +23,7 @@ class Genotype(object):
 
     def get_positions_idxs(self, commonSNPsCHR, commonSNPsPOS):
         common_ins = parsers.ParseInputs("")
-        common_ins.load_snp_info( snpCHR=commonSNPsCHR, snpPOS=commonSNPsPOS, snpGT="", snpWEI="", DPmean="" )
+        common_ins.load_snp_info( snpCHR=commonSNPsCHR, snpPOS=commonSNPsPOS, snpGT="", snpWEI=np.nan, DPmean=0 )
         common_ins.filter_chr_names(self.g)
         acc_idx = np.zeros(0, dtype=int)
         tar_idx = np.zeros(0, dtype=int)

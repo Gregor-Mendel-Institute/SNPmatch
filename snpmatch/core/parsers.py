@@ -74,10 +74,10 @@ class ParseInputs(object):
             log.info("done!")
 
     def load_snp_info(self, snpCHR, snpPOS, snpGT, snpWEI, DPmean):
-        self.chrs = snpCHR
-        self.pos = snpPOS
-        self.gt = snpGT
-        self.wei = snpWEI
+        self.chrs = np.array(snpCHR, dtype="string")
+        self.pos = np.array(snpPOS, dtype=int)
+        self.gt = np.array(snpGT, dtype="string")
+        self.wei = np.array(snpWEI, dtype=float)
         self.dp = DPmean
 
     def save_snp_info(self, outFile):
