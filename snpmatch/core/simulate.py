@@ -1,47 +1,38 @@
-import math
-import random
 import logging
 import numpy as np
-import numpy.ma
-import h5py
-from pygwas.core import genotype
-import scipy
+import pandas as pd
 from . import snpmatch
+from . import parsers
 from . import snp_genotype
 
 log = logging.getLogger(__name__)
 
-
-def simulateSNPs(g, AccID, numSNPs, outFile, err_rate, chunk_size = 1000):
+def simulateSNPs(g, input_df, numSNPs, outFile, err_rate):
+    ## Input -- pandas dataframe with chr, position and genotype
+    assert type(input_df) == pd.core.frame.DataFrame, "please provide a pandas dataframe"
+    assert input_df.shape[1] >= 3, "first three columns are needed in dataframe: chr, pos, snp"
     ## default error rates = 0.001
-    try:
-        AccToCheck = np.where(g.g.accessions == AccID)[0][0]
-    except NameError:
-        snpmatch.die("accession is not present in the matrix!")
-    tot_snps = np.where(g.g_acc.snps[:,AccToCheck] >= 0)[0]
-    log.info("randomly choosing %s SNPs from %s SNPs in accession %s", numSNPs, len(tot_snps), AccID)
-    sampleSNPs = np.sort(random.sample(tot_snps, numSNPs))
-    log.info("done!")
-    ScoreList = np.zeros(len(g.g.accessions), dtype="uint32")
-    NumInfoSites = np.zeros(len(g.g.accessions), dtype="uint32")
-    NumMatSNPs = 0
-    num_lines = len(g.g.accessions)
-    for i in range(0, len(sampleSNPs), chunk_size):
-        t1001SNPs = g.g.snps[tuple(sampleSNPs[i:i+chunk_size]),]
-        sam1kSNPs = t1001SNPs[:, AccToCheck]
-        samSNPs = np.reshape(np.repeat(sam1kSNPs, num_lines), (len(sam1kSNPs), num_lines))
-        ScoreList = ScoreList + np.sum(t1001SNPs == samSNPs, axis=0)
-        NumInfoSites = NumInfoSites + len(sampleSNPs[i:i+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask, axis = 0)
-        NumMatSNPs = NumMatSNPs + len(sam1kSNPs)
-        if i/chunk_size % 50 == 0:
-            log.info("Done analysing %s SNPs", NumMatSNPs)
-    logging.info("writing data!")
-    ScoreList = np.array([random.uniform(ScoreList[i] - (ScoreList[i] * err_rate), ScoreList[i]) for i in range(num_lines)], dtype=int)
-    snpmatch.print_out_table(outFile, g.g.accessions, ScoreList, NumInfoSites, numSNPs, "NA")
+    log.info("sampling %s positions" % numSNPs)
+    sampleSNPs = np.sort(np.random.choice(np.arange(input_df.shape[0]), numSNPs, replace=False))
+    input_df = input_df.iloc[sampleSNPs,:]
+    log.info("adding in error rate: %s" % err_rate)
+    num_to_change = int(err_rate * input_df.shape[0])
+    input_df.iloc[np.sort(np.random.choice(np.arange(input_df.shape[0]), num_to_change, replace=False)), 2] = np.random.choice(3, num_to_change)
+    inputs = parsers.ParseInputs(inFile="")
+    inputs.load_snp_info(np.array(input_df.iloc[:,0]), np.array(input_df.iloc[:,1]), parsers.snp_binary_to_gt( np.array(input_df.iloc[:,2]) ), inputs.get_wei_from_GT( parsers.snp_binary_to_gt( np.array(input_df.iloc[:,2]) ) ), "NA")
+    snpmatch_result = snpmatch.genotyper(inputs, g.g.h5file.filename, g.g_acc.h5file.filename, outFile)
+
 
 def potatoSimulate(args):
-    log.info("loading database files")
     g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'] )
+    try:
+        AccToCheck = np.where(g.g.accessions == args['AccID'])[0][0]
+    except NameError:
+        snpmatch.die("accession is not present in the matrix!")
+    log.info("loading input files")
+    acc_snp = g.g_acc.snps[:,AccToCheck]
+    informative_snps = np.where(acc_snp >= 0)[0] ## Removing NAs for accession
+    input_df = pd.DataFrame(np.column_stack((np.array(g.g.chromosomes)[informative_snps], g.g.positions[informative_snps], acc_snp[informative_snps] )), columns = ["chr", 'pos', 'snp'])
     log.info("done!")
-    simulateSNPs(g.g, g.g_acc, args['AccID'], args['numSNPs'], args['outFile'], args['err_rate'])
+    simulateSNPs(g, input_df, args['numSNPs'], args['outFile'], args['err_rate'])
     log.info("finished!")
