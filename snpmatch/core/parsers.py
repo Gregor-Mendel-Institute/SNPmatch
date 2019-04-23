@@ -52,6 +52,7 @@ class ParseInputs(object):
             log.info("snpmatch parser dump found! loading %s", inFile + ".snpmatch.npz")
             snps = np.load(inFile + ".snpmatch.npz")
             self.load_snp_info(snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
+            log.info("done!")
         elif os.path.isfile(inFile):
             _,inType = os.path.splitext(inFile)
             if inType == '.npz':
@@ -70,7 +71,7 @@ class ParseInputs(object):
                 self.load_snp_info(snpCHR, snpPOS, snpGT, snpWEI, DPmean)
                 self.save_snp_info(outFile)
                 self.case_interpret_inputs(outFile + ".stats.json")
-        log.info("done!")
+            log.info("done!")
 
     def load_snp_info(self, snpCHR, snpPOS, snpGT, snpWEI, DPmean):
         self.chrs = snpCHR
