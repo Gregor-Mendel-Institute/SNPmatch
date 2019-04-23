@@ -174,6 +174,11 @@ def genotyper(inputs, hdf5File, hdf5accFile, outFile):
     getHeterozygosity(inputs.gt[overlappedInds], outFile + ".matches.json")
     return(result)
 
+def get_fraction(x, y):
+    if y == 0:
+        return("NA")
+    return(float(x)/y)
+
 def potatoGenotyper(args):
     inputs = parsers.ParseInputs(inFile = args['inFile'], logDebug = args['logDebug'])
     log.info("running genotyper!")
@@ -205,8 +210,8 @@ def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
         snpmatch_stats[i] = [get_fraction(t_scores, t_common), t_common]
         common = np.append(common, t_common)
         scores = np.append(scores, t_scores)
-    snpmatch_stats['unique'] = {"%s" % os.path.basename(inFile_1): [get_fraction(unique_1, len(inputs_1.chrs)), len(inputs_1.chrs)], "%s" % os.path.basename(inFile_2): [get_fraction(unique_2, len(inputs_2.chrs)), len(inputs_2.chrs)] }
     snpmatch_stats['matches'] = [get_fraction(np.sum(scores), np.sum(common)), np.sum(common)]
+    snpmatch_stats['unique'] = {"%s" % os.path.basename(inFile_1): [get_fraction(unique_1, len(inputs_1.chrs)), len(inputs_1.chrs)], "%s" % os.path.basename(inFile_2): [get_fraction(unique_2, len(inputs_2.chrs)), len(inputs_2.chrs)] }
     if not outFile:
         outFile = "genotyper"
     log.info("writing output in a file: %s" % outFile + ".matches.json")
