@@ -33,6 +33,15 @@ def parseGT(snpGT):
     snpBinary[np.where(snpGT == nocall)[0]] = -1
     return(snpBinary)
 
+def snp_binary_to_gt(snpBinary):
+    snpBinary = np.array(snpBinary, dtype="int8")
+    snpGT = np.zeros(len(snpBinary), dtype="S8")
+    snpGT[np.where(snpBinary == -1)[0]] = "./."
+    snpGT[np.where(snpBinary == 0)[0]] = "0/0"
+    snpGT[np.where(snpBinary == 1)[0]] = "1/1"
+    snpGT[np.where(snpBinary == 2)[0]] = "0/1"
+    return(snpGT)
+
 class ParseInputs(object):
     ## class object for parsing input files for SNPmatch
 
