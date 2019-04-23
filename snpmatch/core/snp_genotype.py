@@ -29,10 +29,10 @@ class Genotype(object):
         tar_idx = np.zeros(0, dtype=int)
         for i in enumerate(common_ins.chr_list):
             perchrTar = np.where(common_ins.chrs_nochr == i[1])[0]
-            perchrTar_POS = common_ins.pos[perchrTar]
+            perchrTar_POS = np.array(common_ins.pos[perchrTar], dtype=int)
             perchrAcc_POS = self.g.positions[self.g.chr_regions[i[0]][0]:self.g.chr_regions[i[0]][1]]
-            perchrAcc_ix = np.where( np.in1d(perchrAcc_POS, perchrTar_POS) )[0] + self.g.chr_regions[i[0]][0]
-            perchrTar_ix = perchrTar[np.where( np.in1d(perchrTar_POS, perchrAcc_POS) )[0]]
+            perchrAcc_ix = np.where( np.in1d(perchrAcc_POS, perchrTar_POS, assume_unique=True) )[0] + self.g.chr_regions[i[0]][0]
+            perchrTar_ix = perchrTar[np.where( np.in1d(perchrTar_POS, perchrAcc_POS, assume_unique=True) )[0]]
             acc_idx = np.append( acc_idx, perchrAcc_ix )
             tar_idx = np.append( tar_idx, perchrTar_ix )
         return((acc_idx, tar_idx))
