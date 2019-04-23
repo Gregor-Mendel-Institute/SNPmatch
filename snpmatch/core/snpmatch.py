@@ -20,6 +20,11 @@ def die(msg):
     sys.stderr.write('Error: ' + msg + '\n')
     sys.exit(1)
 
+def get_fraction(x, y):
+    if y == 0:
+        return(np.nan)
+    return(float(x)/y)
+
 def likeliTest(n, y):
     ## n == total informative sites
     ## y == number of matched sites
@@ -49,7 +54,7 @@ class GenotyperOutput(object):
         self.dp = DPmean
 
     def get_probabilities(self):
-        probs = [float(self.scores[i])/self.ninfo[i] for i in range(len(self.accs))]
+        probs = [get_fraction(self.scores[i], self.ninfo[i]) for i in range(len(self.accs))]
         self.probabilies = np.array(probs, dtype="float")
 
     @staticmethod
@@ -61,7 +66,7 @@ class GenotyperOutput(object):
             TopHit = np.nanmin(LikeLiHoods)
         else:
             TopHit = float(amin)
-        LikeLiHoodRatios = [LikeLiHoods[i]/TopHit for i in range(num_lines)]
+        LikeLiHoodRatios = [get_fraction(LikeLiHoods[i], TopHit) for i in range(num_lines)]
         LikeLiHoodRatios = np.array(LikeLiHoodRatios, dtype="float")
         return((LikeLiHoods, LikeLiHoodRatios))
 
@@ -84,7 +89,7 @@ class GenotyperOutput(object):
         self.get_likelihoods()
         self.get_probabilities()
         topHits = np.where(self.lrts < lr_thres)[0]
-        overlapScore = [float(self.ninfo[i])/self.num_snps for i in range(len(self.accs))]
+        overlapScore = [get_fraction(self.ninfo[i], self.num_snps) for i in range(len(self.accs))]
         sorted_order = topHits[np.argsort(-self.probabilies[topHits])]
         (case, note) = self.case_interpreter(topHits)
         matches_dict = [(self.accs[i], self.probabilies[i], self.ninfo[i], overlapScore[i]) for i in sorted_order]
@@ -117,10 +122,10 @@ def getHeterozygosity(snpGT, outFile='default'):
     if outFile != 'default':
         with open(outFile) as json_out:
             topHitsDict = json.load(json_out)
-        topHitsDict['percent_heterozygosity'] = float(numHets)/len(snpGT)
+        topHitsDict['percent_heterozygosity'] = get_fraction(numHets, len(snpGT))
         with open(outFile, "w") as out_stats:
           out_stats.write(json.dumps(topHitsDict))
-    return float(numHets)/len(snpGT)
+    return(get_fraction(numHets, len(snpGT)))
 
 def genotyper(inputs, hdf5File, hdf5accFile, outFile):
     log.info("loading database files")
@@ -162,7 +167,7 @@ def genotyper(inputs, hdf5File, hdf5accFile, outFile):
                 NumInfoSites = NumInfoSites + len(TarGTs0[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
         log.info("Done analysing %s positions", NumMatSNPs)
     log.info("writing score file!")
-    overlap = float(NumMatSNPs)/len(inputs.filter_inds_ix)
+    overlap = get_fraction(NumMatSNPs, len(inputs.filter_inds_ix))
     result = GenotyperOutput(GenotypeData.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs, inputs.dp)
     result.print_out_table( outFile + '.scores.txt' )
     result.print_json_output( outFile + ".matches.json" )
@@ -197,11 +202,11 @@ def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
         unique_2 = unique_2 + len(perchrTarPosInd2) - len(matchedAccInd2)
         t_common = len(matchedAccInd1)
         t_scores = np.sum(np.array(inputs_1.gt[matchedAccInd1] == inputs_2.gt[matchedAccInd2], dtype = int))
-        snpmatch_stats[i] = [float(t_scores)/t_common, t_common]
+        snpmatch_stats[i] = [get_fraction(t_scores, t_common), t_common]
         common = np.append(common, t_common)
         scores = np.append(scores, t_scores)
-    snpmatch_stats['unique'] = {"%s" % os.path.basename(inFile_1): [float(unique_1)/len(inputs_1.chrs), len(inputs_1.chrs)], "%s" % os.path.basename(inFile_2): [float(unique_2)/len(inputs_2.chrs), len(inputs_2.chrs)]}
-    snpmatch_stats['matches'] = [float(np.sum(scores))/np.sum(common), np.sum(common)]
+    snpmatch_stats['unique'] = {"%s" % os.path.basename(inFile_1): [get_fraction(unique_1, len(inputs_1.chrs)), len(inputs_1.chrs)], "%s" % os.path.basename(inFile_2): [get_fraction(unique_2, len(inputs_2.chrs)), len(inputs_2.chrs)] }
+    snpmatch_stats['matches'] = [get_fraction(np.sum(scores), np.sum(common)), np.sum(common)]
     if not outFile:
         outFile = "genotyper"
     log.info("writing output in a file: %s" % outFile + ".matches.json")
