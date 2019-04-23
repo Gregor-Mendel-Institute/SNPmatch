@@ -155,7 +155,7 @@ def genotyper(inputs, hdf5File, hdf5accFile, outFile):
         tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[:,2]).T, axis=0)
         ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
         NumInfoSites = NumInfoSites + len(TarGTs0) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
-        if j % chunk_size * 50 == 0:
+        if j % (chunk_size * 50) == 0:
             log.info("Done analysing %s positions", j+chunk_size)
     log.info("writing score file!")
     overlap = get_fraction(NumMatSNPs, len(inputs.filter_inds_ix))
