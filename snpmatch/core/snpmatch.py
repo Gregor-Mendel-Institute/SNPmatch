@@ -9,6 +9,7 @@ import logging
 import sys
 import os
 from . import parsers
+from . import snp_genotype
 import json
 
 log = logging.getLogger(__name__)
@@ -129,49 +130,39 @@ def getHeterozygosity(snpGT, outFile='default'):
 
 def genotyper(inputs, hdf5File, hdf5accFile, outFile):
     log.info("loading database files")
-    GenotypeData = genotype.load_hdf5_genotype_data(hdf5File)
-    GenotypeData_acc = genotype.load_hdf5_genotype_data(hdf5accFile)
+    g = snp_genotype.Genotype(hdf5File, hdf5accFile)
     log.info("done!")
-    inputs.filter_chr_names(GenotypeData)
-    num_lines = len(GenotypeData.accessions)
+    inputs.filter_chr_names(g.g)
+    num_lines = len(g.g.accessions)
     ScoreList = np.zeros(num_lines, dtype="float")
-    NumInfoSites = np.zeros(len(GenotypeData.accessions), dtype="uint32")
-    NumMatSNPs = 0
-    overlappedInds = np.zeros(0, dtype=int)
+    NumInfoSites = np.zeros(len(g.g.accessions), dtype="uint32")
     chunk_size = 1000
-    for ind,echr in enumerate(inputs.chr_list):
-        perchrTarPos = np.where(inputs.chrs_nochr == echr)[0]
-        perchrtarSNPpos = inputs.pos[perchrTarPos]
-        log.info("Analysing positions in chromosome %s", echr)
-        start = GenotypeData.chr_regions[ind][0]
-        end = GenotypeData.chr_regions[ind][1]
-        chrpositions = GenotypeData.positions[start:end]
-        matchedAccInd = np.where(np.in1d(chrpositions, perchrtarSNPpos))[0] + start
-        matchedTarInd = np.where(np.in1d(perchrtarSNPpos, chrpositions))[0]
-        matchedTarWei = inputs.wei[perchrTarPos[matchedTarInd],]
+    commonSNPs = g.get_positions_idxs( inputs.chrs, inputs.pos )
+    NumMatSNPs = len(commonSNPs[0])
+    for j in range(0, NumMatSNPs, chunk_size):
+        matchedAccInd = commonSNPs[0][j:j+chunk_size]
+        matchedTarInd = commonSNPs[1][j:j+chunk_size]
+        matchedTarWei = inputs.wei[matchedTarInd,]
         TarGTs0 = np.zeros(len(matchedTarInd), dtype="int8")
         TarGTs1 = np.ones(len(matchedTarInd), dtype="int8") + 1
         TarGTs2 = np.ones(len(matchedTarInd), dtype="int8")
-        overlappedInds = np.append(overlappedInds, perchrTarPos[matchedTarInd])
-        NumMatSNPs = NumMatSNPs + len(matchedAccInd)
-        for j in range(0, len(matchedAccInd), chunk_size):
-            t1001SNPs = GenotypeData.snps[matchedAccInd[j:j+chunk_size],:]
-            samSNPs0 = np.reshape(np.repeat(TarGTs0[j:j+chunk_size], num_lines), (len(TarGTs0[j:j+chunk_size]),num_lines))
-            samSNPs1 = np.reshape(np.repeat(TarGTs1[j:j+chunk_size], num_lines), (len(TarGTs1[j:j+chunk_size]),num_lines))
-            samSNPs2 = np.reshape(np.repeat(TarGTs2[j:j+chunk_size], num_lines), (len(TarGTs2[j:j+chunk_size]),num_lines))
-            tempScore0 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs0, dtype=int).T, matchedTarWei[j:j+chunk_size,0]).T, axis=0)
-            tempScore1 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs1, dtype=int).T, matchedTarWei[j:j+chunk_size,1]).T, axis=0)
-            tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[j:j+chunk_size,2]).T, axis=0)
-            ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
-            if(len(TarGTs0[j:j+chunk_size]) >= 1):
-                NumInfoSites = NumInfoSites + len(TarGTs0[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
-        log.info("Done analysing %s positions", NumMatSNPs)
+        t1001SNPs = g.g.snps[matchedAccInd,:]
+        samSNPs0 = np.reshape(np.repeat(TarGTs0, num_lines), (len(TarGTs0),num_lines))
+        samSNPs1 = np.reshape(np.repeat(TarGTs1, num_lines), (len(TarGTs1),num_lines))
+        samSNPs2 = np.reshape(np.repeat(TarGTs2, num_lines), (len(TarGTs2),num_lines))
+        tempScore0 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs0, dtype=int).T, matchedTarWei[:,0]).T, axis=0)
+        tempScore1 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs1, dtype=int).T, matchedTarWei[:,1]).T, axis=0)
+        tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[:,2]).T, axis=0)
+        ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
+        NumInfoSites = NumInfoSites + len(TarGTs0) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
+        if j % chunk_size * 50 == 0:
+            log.info("Done analysing %s positions", j+chunk_size)
     log.info("writing score file!")
     overlap = get_fraction(NumMatSNPs, len(inputs.filter_inds_ix))
-    result = GenotyperOutput(GenotypeData.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs, inputs.dp)
+    result = GenotyperOutput(g.g.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs, inputs.dp)
     result.print_out_table( outFile + '.scores.txt' )
     result.print_json_output( outFile + ".matches.json" )
-    getHeterozygosity(inputs.gt[overlappedInds], outFile + ".matches.json")
+    getHeterozygosity(inputs.gt[commonSNPs[1]], outFile + ".matches.json")
     return(result)
 
 def potatoGenotyper(args):
