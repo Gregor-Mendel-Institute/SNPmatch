@@ -1,13 +1,10 @@
 import numpy as np
-import numpy.ma
-import scipy.stats as st
 from pygwas.core import genotype
 import pandas as pd
 import logging
-import os
 import re
 from glob import glob
-import itertools
+from . import parsers
 
 log = logging.getLogger(__name__)
 
@@ -25,10 +22,17 @@ class Genotype(object):
             self.g_acc = genotype.load_hdf5_genotype_data(hdf5_acc_file)
 
     def get_positions_idxs(self, commonSNPsCHR, commonSNPsPOS):
-        snp_idx = np.zeros(0, dtype=int)
-        for i in enumerate(self.g.chrs):
-            perchrTar_POS = commonSNPsPOS[np.where(commonSNPsCHR == i[1])[0]]
+        common_ins = parsers.ParseInputs("")
+        common_ins.load_snp_info( snpCHR=commonSNPsCHR, snpPOS=commonSNPsPOS, snpGT="", snpWEI="", DPmean="" )
+        common_ins.filter_chr_names(self.g)
+        acc_idx = np.zeros(0, dtype=int)
+        tar_idx = np.zeros(0, dtype=int)
+        for i in enumerate(common_ins.chr_list):
+            perchrTar = np.where(common_ins.chrs_nochr == i[1])[0]
+            perchrTar_POS = common_ins.pos[perchrTar]
             perchrAcc_POS = self.g.positions[self.g.chr_regions[i[0]][0]:self.g.chr_regions[i[0]][1]]
             perchrAcc_ix = np.where( np.in1d(perchrAcc_POS, perchrTar_POS) )[0] + self.g.chr_regions[i[0]][0]
-            snp_idx = np.append( snp_idx, perchrAcc_ix )
-        return(snp_idx)
+            perchrTar_ix = perchrTar[np.where( np.in1d(perchrTar_POS, perchrAcc_POS) )[0]]
+            acc_idx = np.append( acc_idx, perchrAcc_ix )
+            tar_idx = np.append( tar_idx, perchrTar_ix )
+        return((acc_idx, tar_idx))
