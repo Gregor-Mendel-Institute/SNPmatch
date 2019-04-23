@@ -174,11 +174,6 @@ def genotyper(inputs, hdf5File, hdf5accFile, outFile):
     getHeterozygosity(inputs.gt[overlappedInds], outFile + ".matches.json")
     return(result)
 
-def get_fraction(x, y):
-    if y == 0:
-        return("NA")
-    return(float(x)/y)
-
 def potatoGenotyper(args):
     inputs = parsers.ParseInputs(inFile = args['inFile'], logDebug = args['logDebug'])
     log.info("running genotyper!")
