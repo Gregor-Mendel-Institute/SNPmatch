@@ -90,6 +90,7 @@ def crossWindower(inputs, GenotypeData, binLen, outFile):
     chunk_size = 1000
     TotScoreList = np.zeros(num_lines, dtype="uint32")
     TotNumInfoSites = np.zeros(num_lines, dtype="uint32")
+    TotMatchedTarInds = np.zeros(0, dtype="int")
     iter_bins_genome = get_bins_genome(GenotypeData, binLen)
     iter_bins_snps = get_bins_arrays(inputs.chrs, inputs.pos, binLen)
     out_file = open(outFile, 'w')
@@ -120,6 +121,7 @@ def crossWindower(inputs, GenotypeData, binLen, outFile):
                 NumInfoSites = NumInfoSites + len(TarGTs0[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0)
         TotScoreList = TotScoreList + ScoreList
         TotNumInfoSites = TotNumInfoSites + NumInfoSites
+        TotMatchedTarInds = np.append(TotMatchedTarInds, matchedTarInd)
         writeBinData(out_file, bin_inds, GenotypeData, ScoreList, NumInfoSites)
         winds_chrs = np.append( winds_chrs, inputs.chr_list[e_g[0]] )
         if bin_inds % 50 == 0:
@@ -128,6 +130,7 @@ def crossWindower(inputs, GenotypeData, binLen, outFile):
     out_file.close()
     overlap = float(NumMatSNPs)/len(inputs.filter_inds_ix)
     result = snpmatch.GenotyperOutput(GenotypeData.accessions, TotScoreList, TotNumInfoSites, overlap, NumMatSNPs, inputs.dp)
+    result.matchedTarInd = TotMatchedTarInds
     result.winds_chrs = winds_chrs
     return(result)
 
@@ -210,6 +213,7 @@ def crossIdentifier(inputs, GenotypeData, GenotypeData_acc, binLen, outID):
     scoreFile = outID + '.scores.txt'
     snpmatch_result = crossWindower(inputs, GenotypeData, binLen, outFile)
     snpmatch_result.print_json_output( scoreFile + ".matches.json" )
+    snpmatch.getHeterozygosity(inputs.gt[result.matchedTarInd],  scoreFile + ".matches.json")
     log.info("simulating F1s for top 10 accessions")
     TopHitAccs = np.argsort(-snpmatch_result.probabilies)[0:10]
     for (i, j) in itertools.combinations(TopHitAccs, 2):
