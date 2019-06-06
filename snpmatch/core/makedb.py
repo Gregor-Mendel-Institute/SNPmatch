@@ -6,56 +6,56 @@ import sys
 import os
 import os.path
 import json
-import gzip
-from subprocess import Popen, PIPE
-import shlex
+from subprocess import Popen, PIPE, check_output
 
 log = logging.getLogger(__name__)
 def die(msg):
     sys.stderr.write('Error: ' + msg + '\n')
     sys.exit(1)
 
-def getSamples(inVCF):
-    vname, vext = os.path.splitext(inVCF)
-    if vext == '.vcf':
-        v = open(inVCF, 'r')
-    elif vext == '.gz':
-        v = gzip.open(inVCF)
-    else:
-        die('please provide VCF file either gunzipped or text!')
-    eline = v.readline()
-    while eline[0] == '#':
-        if eline[0:6] == '#CHROM':
-            info = eline.rstrip().split('\t')
-        eline = v.readline()
-    samples = np.array(info[9:])
-    return samples
+def run_command(command, stdout=""):
+    if stdout == "":
+        out_cmd = check_output( command, shell=True )
+        return(out_cmd.rstrip().split("\n"))
+    out_cmd = Popen(command, shell=True, stdout = stdout)
+    out_cmd.wait()
+
+def get_contigs(vcf_header):
+    chr_names = []
+    chr_len = []
+    for eh in vcf_header:
+        if eh[0:8] == '##contig':
+            chr_names.append( eh.replace(">", "").replace("<","").split("ID=")[1].split(",")[0] )
+            chr_len.append( int(eh.replace(">", "").replace("<","").split("length=")[1].split(",")[0]) )
+    return({"ref_chrs": chr_names, "ref_chrlen": chr_len})
 
 def getCSV(inVCF, outFile, bcfpath = ''):
     try:
-        from subprocess import check_output
+        full_bcfpath = ""
         if bcfpath  == '':
             check_output('bcftools -h', shell=True)
+            full_bcfpath = "bcftools "
         else:
             check_output(bcfpath + '/bcftools -h', shell=True)
+            full_bcfpath = bcfpath + '/bcftools '
     except:
         die("please provide bcftools installation path. '%s' is not found!" % (bcfpath + '/bcftools'))
-    outcsv = open(outFile, "w")
-    samples = getSamples(inVCF)
+    outcsv = open(outFile + '.csv', "w")
+    vcf_header = run_command( full_bcfpath + " view -h " + inVCF )
+    samples = np.array(run_command( full_bcfpath + " query -l " + inVCF ))
+    contigs = get_contigs(vcf_header)
+    log.info("Number of contigs found: %s" % len(contigs['ref_chrs']))
+    with open(outFile + ".json", "w") as out_stats:
+        out_stats.write(json.dumps(contigs, sort_keys=True, indent=4))
     outcsv.write('Chromosome,Position')
     for es in samples:
         outcsv.write(',%s' % es)
     outcsv.write('\n')
     outcsv.truncate()
     log.info('running bcftools!')
-    if bcfpath == '':
-        bcftool_command = "bcftools query -f \"%CHROM,%POS[,%GT]\n\" " + inVCF
-    else:
-        bcftool_command = bcfpath + '/' + "bcftools query -f \"%CHROM,%POS[,%GT]\n\" " + inVCF
+    bcftool_command = full_bcfpath + " query -f \"%CHROM,%POS[,%GT]\n\" " + inVCF
     sed_command = "| sed 's/,0[\/|]0/,0/g' | sed 's/,1[\/|]1/,1/g' | sed 's/,0[\/|]1/,2/g'| sed 's/,1[\/|]0/,2/g' | sed 's/,\.[\/|]\./,-1/g'"
-    full_command = bcftool_command + sed_command
-    convertcsv = Popen(full_command, shell=True, stdout = outcsv)
-    convertcsv.wait()
+    run_command( bcftool_command + sed_command, outcsv)
     outcsv.close()
     log.info('done!')
 
@@ -91,7 +91,7 @@ def makedb_from_vcf(args):
     _,inType = os.path.splitext(args['inFile'])
     if inType == '.vcf':
         log.info("converting VCF to CSV")
-        getCSV(args['inFile'], args['db_id'] + '.csv', args['bcfpath'])
+        getCSV(args['inFile'], args['db_id'], args['bcfpath'])
         log.info("converting CSV to hdf5!")
         makeHDF5s(args['db_id'] + '.csv', args['db_id'])
         log.info('done!')
