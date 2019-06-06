@@ -152,15 +152,10 @@ class ParseInputs(object):
         snpPOS = np.array(vcf['variants/POS'][snpsREQ])
         return((snpCHR, snpPOS, snpGT, snpWEI, DPmean))
 
-    def filter_chr_names(self, g):
+    def filter_chr_names(self):
         ## provide genotypedata (pygwas genotype object)
-        self.chr_list = np.array(pd.Series(g.chrs).str.replace("chr", "", case=False), dtype="string")
-        self.chrs_nochr = np.array(pd.Series(self.chrs).str.replace("chr", "", case=False), dtype="string")
-        self.filter_inds_ix = np.where( np.in1d( self.chrs_nochr, self.chr_list ) )[0]
-
-    def get_chr_list(self):
-        self.g_chrs = np.char.replace(np.core.defchararray.lower(np.array(self.chrs, dtype="string")), "chr", "")
-        self.g_chrs_uq = np.unique(self.g_chrs)
+        self.g_chrs = np.array(pd.Series(self.chrs).str.replace("chr", "", case=False), dtype="string")
+        self.g_chrs_ids = np.unique(self.g_chrs)
 
 
 def potatoParser(inFile, logDebug, outFile = "parser"):
