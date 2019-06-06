@@ -54,7 +54,7 @@ class Genome(object):
             for e_bin in echr_bins:
                 yield((chr_ix, e_bin[0], e_bin[1]))
 
-    def get_bins_arrays(g_chrs, g_snppos, binLen):
+    def get_bins_arrays(self, g_chrs, g_snppos, binLen):
         g_chrs = np.char.replace(np.core.defchararray.lower(np.array(g_chrs, dtype="string")), "chr", "")
         g_chrs_ids = np.unique(g_chrs)
         common_chr_ids = np.intersect1d(g_chrs_ids, self.chrs_ids)
