@@ -9,7 +9,7 @@ import pandas as pd
 import logging
 import os
 from . import snpmatch
-from . import csmatch
+from . import genomes
 import parsers
 import json
 import itertools
@@ -135,8 +135,8 @@ class GenotypeCross(object):
         self._inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
         ## Inputs is the ParseInputs class object
         log.info("running cross genotyper")
-        iter_bins_genome = csmatch.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = csmatch.get_bins_arrays(self._inputs.chrs, self._inputs.pos, self.window_size)
+        iter_bins_genome = genome.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
+        iter_bins_snps = genome.get_bins_arrays(self._inputs.chrs, self._inputs.pos, self.window_size)
         bin_inds = 0
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
@@ -172,7 +172,7 @@ class GenotypeCross(object):
     def genotype_each_cross_hmm(self, input_file, n_marker_thres):
         self._inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
         ## Inputs is the ParseInputs class object
-        self._inputs.get_chr_list()
+        self._inputs.filter_chr_names()
         from hmmlearn import hmm
         ### The below transition probability is for a intercross, adapted from R/qtl
         log.info("running HMM")
@@ -190,7 +190,7 @@ class GenotypeCross(object):
         model.means_ = np.array( [ [1, 0, 0], [0, 1, 0], [0, 0, 1] ] )
         model.covars_ = np.tile(np.identity(3), (3, 1, 1))
         allSNPGenos = np.zeros(0, dtype=int)
-        for ec, eclen in itertools.izip(tair_chrs, chrlen):
+        for ec, eclen in itertools.izip(genome.chrs_ids, genome.chrlen):
             reqPOSind =  np.where(self.commonSNPsCHR == ec)[0]
             reqTARind = np.where( self._inputs.g_chrs == ec )[0]
             ebAccsInds, ebTarInds = self._get_common_positions_ixs(reqPOSind, reqTARind)
@@ -198,8 +198,8 @@ class GenotypeCross(object):
             ebin_prob = self.get_probabilities_ebin(self._inputs.gt[ebTarInds], self.snpsP1[ebAccsInds], self.snpsP2[ebAccsInds])
             eb_SNPprobs[ebAccsInds - reqPOSind[0],] = ebin_prob
             allSNPGenos = np.append(allSNPGenos, model.predict( eb_SNPprobs ))
-        iter_bins_genome = csmatch.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = csmatch.get_bins_arrays(self._inputs.chrs, self._inputs.pos, self.window_size)
+        iter_bins_genome = genome.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
+        iter_bins_snps = genome.get_bins_arrays(self._inputs.chrs, self._inputs.pos, self.window_size)
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
             matchedAccInd, matchedTarInd = self._get_common_positions_ixs( e_b[2], e_s[2] )
@@ -252,8 +252,8 @@ class GenotypeCross(object):
         snpvcf = self.filter_good_samples(snpvcf, good_samples_file)
         num_samples = snpvcf.shape[1] - 2
         log.info("number of samples printed: %s" % num_samples )
-        iter_bins_genome = get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = get_bins_arrays(np.array(snpvcf.iloc[:,0]), np.array(snpvcf.iloc[:,1]), self.window_size)
+        iter_bins_genome = genome.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
+        iter_bins_snps = genome.get_bins_arrays(np.array(snpvcf.iloc[:,0]), np.array(snpvcf.iloc[:,1]), self.window_size)
         bin_inds = 0
         outfile_str = np.array(('id,,,' + self.print_ids(snpvcf)), dtype="string")
         outfile_str = np.append(outfile_str, 'pheno,' + ',' + ',0' * num_samples)
@@ -287,6 +287,8 @@ def potatoCrossGenotyper(args):
     # 3) SNP matrix (hdf5 file)
     # 4) Bin length, default as 200Kbp
     # 5) Chromosome length
+    global genome
+    genome = genomes.Genome(args['genome'])
     crossgenotyper = GenotypeCross(args['hdf5accFile'], args['parents'], args['binLen'], args['father'], args['logDebug'])
     if args['all_samples']:
         outfile_str = crossgenotyper.genotype_cross_all_samples( args['inFile'], args['lr_thres'], args['good_samples'] )

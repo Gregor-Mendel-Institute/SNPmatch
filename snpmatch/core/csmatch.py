@@ -3,71 +3,17 @@
 """
 import numpy as np
 import numpy.ma
-import scipy.stats as st
-from pygwas.core import genotype
 import pandas as pd
 import logging
-import os
-import snpmatch
-import parsers
+from . import snpmatch
+from . import genomes
+from . import snp_genotype
+from . import parsers
 import json
 import itertools
 
 log = logging.getLogger(__name__)
-
-# Arabidopsis chromosome length
-chrlen = np.array((30427671, 19698289, 23459830, 18585056, 26975502, 154478, 154478))
-tair_chrs = ['1', '2', '3', '4', '5']
-mean_recomb_rates = [3.4, 3.6, 3.5, 3.8, 3.6]  ## cM/Mb ## Salome, P et al. 2011
-
-def get_bins_echr(real_chrlen, chr_pos, binLen, rel_ix):
-    ind = 0
-    for t in range(1, real_chrlen, binLen):
-        skipped = True
-        result = []
-        bin_bed = [int(t), int(t) + binLen - 1]
-        for epos in chr_pos[ind:]:
-            if epos >= bin_bed[0]:
-                if epos <= bin_bed[1]:
-                    result.append(ind + rel_ix)
-                elif epos > bin_bed[1]:
-                    skipped = False
-                    yield((bin_bed, result))
-                    break
-                ind = ind + 1
-        if skipped:
-            yield((bin_bed, result))
-
-def get_bins_genome(g, binLen):
-    binLen = int(binLen)
-    g_chrs = np.char.replace(np.core.defchararray.lower(np.array(g.chrs[0:len(tair_chrs)], dtype="string")), "chr", "")
-    if len(g_chrs) > 7:
-        snpmatch.die("Please change the genome sizes in csmatch module")
-    if not np.array_equal(g_chrs, np.array(tair_chrs)):
-        snpmatch.die("Please change the genome sizes in csmatch module")
-    for chr_ix in range(len(g_chrs)):
-        start = g.chr_regions[chr_ix][0]
-        end = g.chr_regions[chr_ix][1]
-        chr_pos = g.positions[start:end]
-        echr_bins = get_bins_echr(chrlen[chr_ix], chr_pos, binLen, start)
-        for e_bin in echr_bins:
-            yield((chr_ix, e_bin[0], e_bin[1]))
-
-def get_bins_arrays(g_chrs, g_snppos, binLen):
-    g_chrs = np.char.replace(np.core.defchararray.lower(np.array(g_chrs, dtype="string")), "chr", "")
-    g_chrs_uq = np.unique(g_chrs)
-    matched_tair = np.where( np.in1d(g_chrs_uq, tair_chrs) )[0]
-    if len(matched_tair) == 0:
-        snpmatch.die("Please change the genome sizes in csmatch module")
-    for chr_ix in range(len(tair_chrs)):
-        chr_pos_ix = np.where(g_chrs == tair_chrs[chr_ix])[0]
-        if len(chr_pos_ix) > 0:
-            echr_bins = get_bins_echr(chrlen[chr_ix], g_snppos[chr_pos_ix], binLen, chr_pos_ix[0])
-        else:
-            echr_bins = get_bins_echr(chrlen[chr_ix], g_snppos[chr_pos_ix], binLen, 0)
-        for e_bin in echr_bins:
-            yield((chr_ix, e_bin[0], e_bin[1]))
-
+chunk_size = 1000
 
 def writeBinData(out_file, bin_inds, GenotypeData, ScoreList, NumInfoSites):
     num_lines = len(GenotypeData.accessions)
@@ -84,15 +30,14 @@ def writeBinData(out_file, bin_inds, GenotypeData, ScoreList, NumInfoSites):
                 out_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[k], int(ScoreList[k]), NumInfoSites[k], score, likeliScore[k], nextLikeli, len(NumAmb), bin_inds))
 
 def crossWindower(inputs, GenotypeData, binLen, outFile):
-    inputs.filter_chr_names(GenotypeData)
+    inputs.filter_chr_names()
     num_lines = len(GenotypeData.accessions)
     NumMatSNPs = 0
-    chunk_size = 1000
     TotScoreList = np.zeros(num_lines, dtype="uint32")
     TotNumInfoSites = np.zeros(num_lines, dtype="uint32")
     TotMatchedTarInds = np.zeros(0, dtype="int")
-    iter_bins_genome = get_bins_genome(GenotypeData, binLen)
-    iter_bins_snps = get_bins_arrays(inputs.chrs, inputs.pos, binLen)
+    iter_bins_genome = genome.get_bins_genome(GenotypeData, binLen)
+    iter_bins_snps = genome.get_bins_arrays(inputs.chrs, inputs.pos, binLen)
     out_file = open(outFile, 'w')
     bin_inds = 1
     winds_chrs = np.zeros(0, dtype = GenotypeData.chrs.dtype)
@@ -123,12 +68,12 @@ def crossWindower(inputs, GenotypeData, binLen, outFile):
         TotNumInfoSites = TotNumInfoSites + NumInfoSites
         TotMatchedTarInds = np.append(TotMatchedTarInds, matchedTarInd)
         writeBinData(out_file, bin_inds, GenotypeData, ScoreList, NumInfoSites)
-        winds_chrs = np.append( winds_chrs, inputs.chr_list[e_g[0]] )
+        winds_chrs = np.append( winds_chrs, genome.chrs_ids[e_g[0]] )
         if bin_inds % 50 == 0:
             log.info("Done analysing %s positions", NumMatSNPs)
         bin_inds += 1
     out_file.close()
-    overlap = float(NumMatSNPs)/len(inputs.filter_inds_ix)
+    overlap = float(NumMatSNPs)/len(inputs.pos)
     result = snpmatch.GenotyperOutput(GenotypeData.accessions, TotScoreList, TotNumInfoSites, overlap, NumMatSNPs, inputs.dp)
     result.matchedTarInd = TotMatchedTarInds
     result.winds_chrs = winds_chrs
@@ -151,8 +96,8 @@ def crossInterpreter(snpmatch_result, GenotypeData, binLen, outID):
     outFile = outID + '.windowscore.txt'
     scoreFile = outID + '.scores.txt'
     log.info("running cross interpreter!")
-    likeLiwind = pd.read_table(outFile, header=None)
-    ScoreAcc = pd.read_table(scoreFile, header=None)
+    likeLiwind = pd.read_csv(outFile, sep = "\t", header=None)
+    ScoreAcc = pd.read_csv(scoreFile, sep = "\t", header=None)
     topHitsDict = json.load(open(scoreFile + ".matches.json", 'r'))
     if topHitsDict['interpretation']['case'] == 3:
         homo_wind = getHomoWindows(likeLiwind)
@@ -201,39 +146,33 @@ def crossInterpreter(snpmatch_result, GenotypeData, binLen, outID):
                 topHitsDict['genotype_windows'] = {'chr_bins': None, 'coordinates': {'x': None, 'y': None}}
                 topHitsDict['parents'] = {'mother': [None,0], 'father': [None,1]}
         with open(outID + ".matches.json", "w") as out_stats:
-            out_stats.write(json.dumps(topHitsDict))
+            out_stats.write(json.dumps(topHitsDict, sort_keys=True, indent=4))
 
-def crossIdentifier(inputs, GenotypeData, GenotypeData_acc, binLen, outID):
+def crossIdentifier(inputs, g, binLen, outID):
     ## Get tophit accessions
     # sorting based on the final scores
-    inputs.filter_chr_names(GenotypeData)
+    inputs.filter_chr_names()
     if not outID:
         outID = "cross.identifier"
     outFile = outID + '.windowscore.txt'
     scoreFile = outID + '.scores.txt'
-    snpmatch_result = crossWindower(inputs, GenotypeData, binLen, outFile)
+    snpmatch_result = crossWindower(inputs, g.g, binLen, outFile)
     snpmatch_result.print_json_output( scoreFile + ".matches.json" )
-    snpmatch.getHeterozygosity(inputs.gt[result.matchedTarInd],  scoreFile + ".matches.json")
+    snpmatch.getHeterozygosity(inputs.gt[snpmatch_result.matchedTarInd],  scoreFile + ".matches.json")
     log.info("simulating F1s for top 10 accessions")
     TopHitAccs = np.argsort(-snpmatch_result.probabilies)[0:10]
+    commonSNPs = g.get_positions_idxs( inputs.chrs, inputs.pos )
     for (i, j) in itertools.combinations(TopHitAccs, 2):
-        p1 = GenotypeData_acc.snps[:,i]
-        p2 = GenotypeData_acc.snps[:,j]
+        p1 = g.g_acc.snps[:,i]
+        p2 = g.g_acc.snps[:,j]
         score = 0
         numinfo = 0
-        NumMatSNPs = 0
-        for ind,echr in enumerate(inputs.chr_list):
-            perchrTarPos = np.where(inputs.chrs_nochr == echr)[0]
-            perchrtarSNPpos = inputs.pos[perchrTarPos]
-            start = GenotypeData.chr_regions[ind][0]
-            end = GenotypeData.chr_regions[ind][1]
-            chrpositions = GenotypeData.positions[start:end]
-            matchedAccInd = np.where(np.in1d(chrpositions, perchrtarSNPpos))[0] + start
-            matchedTarInd = np.where(np.in1d(perchrtarSNPpos, chrpositions))[0]
-            NumMatSNPs = NumMatSNPs + len(matchedTarInd)
+        for ind in range(0, len(commonSNPs[0]), chunk_size):
+            matchedAccInd = commonSNPs[0][ind:ind+chunk_size]
+            matchedTarInd = commonSNPs[1][ind:ind+chunk_size]
             gtp1 = p1[matchedAccInd]
             gtp2 = p2[matchedAccInd]
-            matchedTarWEI = inputs.wei[perchrTarPos[matchedTarInd],]
+            matchedTarWEI = inputs.wei[matchedTarInd,]
             homalt = np.where((gtp1 == 1) & (gtp2 == 1))[0]
             homref = np.where((gtp1 == 0) & (gtp2 == 0))[0]
             het = np.where((gtp1 != -1) & (gtp2 != -1) & (gtp1 != gtp2))[0]
@@ -241,17 +180,18 @@ def crossIdentifier(inputs, GenotypeData, GenotypeData_acc, binLen, outID):
             numinfo = numinfo + len(homalt) + len(homref) + len(het)
         snpmatch_result.scores = np.append(snpmatch_result.scores, score)
         snpmatch_result.ninfo = np.append(snpmatch_result.ninfo, numinfo)
-        snpmatch_result.accs = np.append( snpmatch_result.accs, GenotypeData.accessions[i] + "x" + GenotypeData.accessions[j] )
+        snpmatch_result.accs = np.append( snpmatch_result.accs, g.g.accessions[i] + "x" + g.g.accessions[j] )
     log.info("writing output!")
     snpmatch_result.print_out_table( scoreFile )
-    crossInterpreter(snpmatch_result, GenotypeData, binLen, outID)
+    crossInterpreter(snpmatch_result, g.g, binLen, outID)
 
 def potatoCrossIdentifier(args):
     inputs = parsers.ParseInputs(inFile = args['inFile'], logDebug = args['logDebug'])
+    global genome
+    genome = genomes.Genome(args['genome'])
     log.info("loading genotype files!")
-    GenotypeData = genotype.load_hdf5_genotype_data(args['hdf5File'])
-    GenotypeData_acc = genotype.load_hdf5_genotype_data(args['hdf5accFile'])
+    g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'])
     log.info("done!")
     log.info("running cross identifier!")
-    crossIdentifier(inputs, GenotypeData, GenotypeData_acc, args['binLen'], args['outFile'])
+    crossIdentifier(inputs, g, args['binLen'], args['outFile'])
     log.info("finished!")
