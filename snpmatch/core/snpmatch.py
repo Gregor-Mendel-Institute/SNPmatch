@@ -4,7 +4,6 @@
 import numpy as np
 import scipy as sp
 import numpy.ma
-from pygwas.core import genotype
 import logging
 import sys
 import os
@@ -96,7 +95,7 @@ class GenotyperOutput(object):
         matches_dict = [(self.accs[i], self.probabilies[i], self.ninfo[i], overlapScore[i]) for i in sorted_order]
         topHitsDict = {'overlap': [self.overlap, self.num_snps], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}
         with open(outFile, "w") as out_stats:
-            out_stats.write(json.dumps(topHitsDict))
+            out_stats.write(json.dumps(topHitsDict, sort_keys=True, indent=4))
 
     def case_interpreter(self, topHits):
         overlap_thres = 0.5
@@ -125,14 +124,14 @@ def getHeterozygosity(snpGT, outFile='default'):
             topHitsDict = json.load(json_out)
         topHitsDict['percent_heterozygosity'] = get_fraction(numHets, len(snpGT))
         with open(outFile, "w") as out_stats:
-          out_stats.write(json.dumps(topHitsDict))
+          out_stats.write(json.dumps(topHitsDict, sort_keys=True, indent=4))
     return(get_fraction(numHets, len(snpGT)))
 
 def genotyper(inputs, hdf5File, hdf5accFile, outFile):
     log.info("loading database files")
     g = snp_genotype.Genotype(hdf5File, hdf5accFile)
     log.info("done!")
-    inputs.filter_chr_names(g.g)
+    inputs.filter_chr_names()
     num_lines = len(g.g.accessions)
     ScoreList = np.zeros(num_lines, dtype="float")
     NumInfoSites = np.zeros(len(g.g.accessions), dtype="uint32")
@@ -158,7 +157,7 @@ def genotyper(inputs, hdf5File, hdf5accFile, outFile):
         if j % (chunk_size * 50) == 0:
             log.info("Done analysing %s positions", j+chunk_size)
     log.info("writing score file!")
-    overlap = get_fraction(NumMatSNPs, len(inputs.filter_inds_ix))
+    overlap = get_fraction(NumMatSNPs, len(inputs.pos))
     result = GenotyperOutput(g.g.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs, inputs.dp)
     result.print_out_table( outFile + '.scores.txt' )
     result.print_json_output( outFile + ".matches.json" )
@@ -178,9 +177,9 @@ def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
     unique_1, unique_2 = 0, 0
     common = np.zeros(0, dtype=int)
     scores = np.zeros(0, dtype=int)
-    inputs_1.get_chr_list()
-    inputs_2.get_chr_list()
-    common_chrs = np.intersect1d(inputs_1.g_chrs_uq, inputs_2.g_chrs_uq)
+    inputs_1.filter_chr_names()
+    inputs_2.filter_chr_names()
+    common_chrs = np.intersect1d(inputs_1.g_chrs_ids, inputs_2.g_chrs_ids)
     for i in common_chrs:
         perchrTarPosInd1 = np.where(inputs_1.g_chrs == i)[0]
         perchrTarPosInd2 = np.where(inputs_2.g_chrs == i)[0]
@@ -202,5 +201,5 @@ def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
         outFile = "genotyper"
     log.info("writing output in a file: %s" % outFile + ".matches.json")
     with open(outFile + ".matches.json", "w") as out_stats:
-        out_stats.write(json.dumps(snpmatch_stats))
+        out_stats.write(json.dumps(snpmatch_stats, sort_keys=True, indent=4))
     log.info("finished!")
