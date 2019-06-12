@@ -1,3 +1,4 @@
 include README.md
 include setup.py
 include MANIFEST.in
+recursive-include snpmatch/resources *.json

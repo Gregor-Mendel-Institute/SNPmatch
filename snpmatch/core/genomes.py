@@ -18,7 +18,7 @@ class Genome(object):
     def __init__(self, ref_json):
         ref_genomes_ids = self.get_genome_ids()
         if ref_json in ref_genomes_ids:
-            ref_json = os.path.dirname(__file__) + '/../../resources/genomes/' + ref_json + '.json'
+            ref_json = os.path.dirname(__file__) + '/../resources/genomes/' + ref_json + '.json'
         assert os.path.exists(ref_json), "Reference json file missing: %s" % ref_json
         with open(ref_json) as ref_genome:
             refs = json.load(ref_genome)
@@ -28,7 +28,7 @@ class Genome(object):
 
     def get_genome_ids(self):
         from glob import glob
-        ref_files = glob(os.path.dirname(__file__) + '/../../resources/genomes/*.json')
+        ref_files = glob(os.path.dirname(__file__) + '/../resources/genomes/*.json')
         ref_ids = []
         for ef in ref_files:
             ref_ids.append( os.path.basename(ef).replace(".json", "") )
