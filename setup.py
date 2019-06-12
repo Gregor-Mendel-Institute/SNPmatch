@@ -25,6 +25,9 @@ setup(
     ],
     keywords='Genotyping Low Coverage sequencing data',
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
+    package_data={
+    'genomes': ['resources/genomes/*json'],
+    },
     install_requires=[
         "scipy >= 0.17.0",
         "numpy >=1.9.0",
