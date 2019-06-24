@@ -34,6 +34,41 @@ class Genome(object):
             ref_ids.append( os.path.basename(ef).replace(".json", "") )
         return(ref_ids)
 
+    def get_chr_ind(self, echr):
+        real_chrs = np.array( [ ec.replace("Chr", "").replace("chr", "") for ec in self.chrs ] )
+        if type(echr) is str or type(echr) is np.string_:
+            echr_num = str(echr).replace("Chr", "").replace("chr", "")
+            if len(np.where(real_chrs == echr_num)[0]) == 1:
+                return(np.where(real_chrs == echr_num)[0][0])
+            else:
+                return(None)
+        echr_num = np.unique( np.array( echr ) )
+        ret_echr_ix = np.zeros( len(echr), dtype="int8" )
+        for ec in echr_num:
+            t_ix = np.where(real_chrs ==  str(ec).replace("Chr", "").replace("chr", "") )[0]
+            ret_echr_ix[ np.where(np.array( echr ) == ec)[0] ] = t_ix[0]
+        return(ret_echr_ix)
+
+    def estimated_cM_distance(self, snp_position):
+        ## snp_position = "Chr1,150000" or "Chr1,1,300000"
+        # Data based on
+        #Salome, P. A., Bomblies, K., Fitz, J., Laitinen, R. A., Warthmann, N., Yant, L., & Weigel, D. (2011)
+        #The recombination landscape in Arabidopsis thaliana F2 populations. Heredity, 108(4), 447-55.
+        if "recomb_rates" in self.json.keys():
+            mean_recomb_rates = self.json['recomb_rates']
+        else:
+            log.warn("Average recombination rates were missing in genome file. Add rates for each chromosome as an array in genome json file under 'recomb_rates' key. Using default rate of 3")
+            mean_recomb_rates = np.repeat(3, len(genome.chrs_ids))
+        assert isinstance(snp_position, basestring), "expected a string!"
+        assert len(snp_position.split(",")) >= 2, "input should be 'chr1,1000' or 'chr1,1000,2000'"
+        if len(snp_position.split(",")) == 2:
+            snp_position = [snp_position.split(",")[0], int(snp_position.split(",")[1])]
+        elif len(snp_position.split(",")) == 3:
+            snp_position = [snp_position.split(",")[0], (int(snp_position.split(",")[1]) + int(snp_position.split(",")[2])) / 2 ]
+        chr_ix = self.get_chr_ind( snp_position[0] )
+        return( mean_recomb_rates[chr_ix] * snp_position[1] / 1000000 )
+
+
     def get_bins_genome(self, g, binLen):
         binLen = int(binLen)
         g_chrs_ids = np.char.replace(np.core.defchararray.lower(np.array(g.chrs, dtype="string")), "chr", "")

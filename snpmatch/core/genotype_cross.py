@@ -260,7 +260,7 @@ class GenotypeCross(object):
         outfile_str = np.append(outfile_str, 'pheno,' + ',' + ',0' * num_samples)
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
             bin_str = genome.chrs_ids[e_b[0]] + ":" + str(e_b[1][0]) + "-" + str(e_b[1][1])
-            cm_mid = float(mean_recomb_rates[e_b[0]]) * np.mean(e_b[1]).astype(int) / 1000000
+            cm_mid = genome.estimated_cM_distance( genome.chrs_ids[e_b[0]] + "," + str(np.mean(e_b[1])) )
             reqPOS = self.commonSNPsPOS[e_b[2]]
             perchrTarPos = np.array(snpvcf.iloc[e_s[2], 1])
             matchedAccInd = np.array(e_b[2], dtype=int)[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
