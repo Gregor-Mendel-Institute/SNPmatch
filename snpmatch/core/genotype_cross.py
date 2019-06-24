@@ -16,11 +16,6 @@ import itertools
 
 log = logging.getLogger(__name__)
 
-# Arabidopsis chromosome length
-chrlen = np.array((30427671, 19698289, 23459830, 18585056, 26975502))
-tair_chrs = ['1', '2', '3', '4', '5']
-mean_recomb_rates = [3.4, 3.6, 3.5, 3.8, 3.6]  ## cM/Mb ## Salome, P et al. 2011
-
 
 def getWindowGenotype(matchedNos, totalMarkers, lr_thres, n_marker_thres = 5):
     ## matchedNos == array with matched number of SNPs
@@ -58,6 +53,7 @@ class GenotypeCross(object):
     def __init__(self, hdf5_acc, parents, binLen, father = None, logDebug=True):
         self.logDebug = logDebug
         self.get_segregating_snps_parents(hdf5_acc, parents, father)
+        self.g_acc = hdf5_acc
         self.window_size = int(binLen)
 
     def get_segregating_snps_parents(self, hdf5_acc, parents, father):
@@ -141,7 +137,7 @@ class GenotypeCross(object):
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
             # first snp positions which are segregating and are in this window
-            bin_str = tair_chrs[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1])
+            bin_str = genome.chrs_ids[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1])
             matchedAccInd, matchedTarInd = self._get_common_positions_ixs( e_b[2], e_s[2] )
             if len(matchedTarInd) == 0:
                 outfile_str = np.append(outfile_str, "%s\t%s\t%s\tNA\tNA" % (bin_str, len(matchedTarInd), len(e_b[2])) )
@@ -203,7 +199,7 @@ class GenotypeCross(object):
         outfile_str = np.zeros(0, dtype="string")
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
             matchedAccInd, matchedTarInd = self._get_common_positions_ixs( e_b[2], e_s[2] )
-            bin_str = tair_chrs[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1]) + "\t" + str(len(matchedTarInd)) + "\t" + str(len(e_b[2]))
+            bin_str = genome.chrs_ids[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1]) + "\t" + str(len(matchedTarInd)) + "\t" + str(len(e_b[2]))
             t_genos = np.unique(allSNPGenos[e_b[2]])
             t_genos_nums = pd.Series([ len( np.where( allSNPGenos[e_b[2]] == e )[0] )  for e in [0, 1, 2]]).astype(str).str.cat(sep=",")
             if len(e_b[2]) > 0:
@@ -252,26 +248,31 @@ class GenotypeCross(object):
         snpvcf = self.filter_good_samples(snpvcf, good_samples_file)
         num_samples = snpvcf.shape[1] - 2
         log.info("number of samples printed: %s" % num_samples )
+        if "recomb_rates" in genome.json.keys():
+            mean_recomb_rates = genome['recomb_rates']
+        else:
+            log.warn("Average recombination rates were missing in genome file. Add rates for each chromosome as an array in genome json file under 'recomb_rates' key. Using default rate of 3")
+            mean_recomb_rates = np.repeat(3, len(genome.chrs_ids))
         iter_bins_genome = genome.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
         iter_bins_snps = genome.get_bins_arrays(np.array(snpvcf.iloc[:,0]), np.array(snpvcf.iloc[:,1]), self.window_size)
         bin_inds = 0
         outfile_str = np.array(('id,,,' + self.print_ids(snpvcf)), dtype="string")
         outfile_str = np.append(outfile_str, 'pheno,' + ',' + ',0' * num_samples)
         for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
-            bin_str = tair_chrs[e_b[0]] + ":" + str(e_b[1][0]) + "-" + str(e_b[1][1])
+            bin_str = genome.chrs_ids[e_b[0]] + ":" + str(e_b[1][0]) + "-" + str(e_b[1][1])
             cm_mid = float(mean_recomb_rates[e_b[0]]) * np.mean(e_b[1]).astype(int) / 1000000
             reqPOS = self.commonSNPsPOS[e_b[2]]
             perchrTarPos = np.array(snpvcf.iloc[e_s[2], 1])
             matchedAccInd = np.array(e_b[2], dtype=int)[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
             matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
             if len(matchedTarInd) == 0:
-                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, tair_chrs[e_b[0]],  cm_mid, ',NA' * num_samples ) )
+                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, genome.chrs_ids[e_b[0]],  cm_mid, ',NA' * num_samples ) )
             else:
                 geno_samples = ''
                 for sample_ix in range(num_samples):
                     (geno, pval) = self.get_window_genotype_gts(np.array(snpvcf.iloc[matchedTarInd, sample_ix + 2]), self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd], lr_thres)
                     geno_samples = geno_samples + ',' + str(geno)
-                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, tair_chrs[e_b[0]],  cm_mid, geno_samples ) )
+                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, genome.chrs_ids[e_b[0]],  cm_mid, geno_samples ) )
             bin_inds += 1
             if bin_inds % 40 == 0:
                 log.info("progress: %s windows", bin_inds)

@@ -21,9 +21,9 @@ class Genome(object):
             ref_json = os.path.dirname(__file__) + '/../resources/genomes/' + ref_json + '.json'
         assert os.path.exists(ref_json), "Reference json file missing: %s" % ref_json
         with open(ref_json) as ref_genome:
-            refs = json.load(ref_genome)
-        self.chrs = np.array(refs['ref_chrs'], dtype="string")
-        self.chrlen = np.array(refs['ref_chrlen'], dtype = int)
+            self.json = json.load(ref_genome)
+        self.chrs = np.array(self.json['ref_chrs'], dtype="string")
+        self.chrlen = np.array(self.json['ref_chrlen'], dtype = int)
         self.chrs_ids = np.char.replace(np.core.defchararray.lower(self.chrs), "chr", "")
 
     def get_genome_ids(self):

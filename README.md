@@ -37,10 +37,13 @@ The above command generates three files,
   * db.csv
   * db.hdf5
   * db.acc.hdf5
+  * db.csv.json
 
 The two hdf5 files are the main database files used for further analysis. The files have the same information but are chunked for better efficiency. The files db.hdf5 and db.acc.hdf5 are given to the SNPmatch command under -d and -e options respectively.
 
 For *Arabidopsis thaliana* users, we have made SNP database files for the `RegMap` and `1001Genomes` panel available and can be downloaded [here](https://gmioncloud-my.sharepoint.com/personal/uemit_seren_gmi_oeaw_ac_at/_layouts/15/guestaccess.aspx?folderid=0ca806e676c154094992a9e89e5341d43&authkey=AXJPl6GkD8vNPDZJwheb6uk).
+
+If you are working with other genomes, the above command generates a JSON file containing chromosome information. Provide this JSON file in `cross` and `genotype_cross` functions under `--genome` option.
 
 ### Input file
 
@@ -105,7 +108,7 @@ snpmatch cross -v -d db.hdf5 -e db.acc.hdf5 -i input_file -b window_size_in_bp -
 #to identify the windows matching to each parent in a hybrid
 ```
 
-These scripts are implemented based on the *A. thaliana* genome sizes. But the global variable in csmatch [script](https://github.com/Gregor-Mendel-Institute/SNPmatch/blob/master/snpmatch/core/csmatch.py#L19) can be modified to the corresponding genome sizes.
+These scripts are implemented based on the *A. thaliana* genome sizes. But please change `--genome` option by providing JSON file [generated](### Database files) while working with other genomes.
 
 ### Output files for cross
 We have three output files for the cross match in SNPmatch
