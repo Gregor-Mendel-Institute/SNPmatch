@@ -1,0 +1,13 @@
+name: snpmatch
+channels:
+    - bioconda
+    - anaconda
+    - conda-forge
+dependencies:
+    - python=2.7.16
+    - numpy=1.16.4
+    - bcftools=1.9
+    - scikit-allel=0.20.3
+    - pip=19.2.2
+    - pip:
+        - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"

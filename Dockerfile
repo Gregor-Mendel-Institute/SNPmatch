@@ -1,9 +1,7 @@
-FROM python:2
+FROM continuumio/miniconda3:latest
 
-WORKDIR /usr/src/app
-
-RUN apt-get update && apt-get install -y procps && apt-get clean -y
+RUN conda update -n base -c defaults conda
+COPY environment.yml /
 RUN mkdir /lustre
-RUN pip install numpy
-RUN pip install --no-cache-dir git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git@3.0.1
-
+RUN conda env create -f /environment.yml && conda clean -a
+ENV PATH /opt/conda/envs/snpmatch/bin:$PATH
