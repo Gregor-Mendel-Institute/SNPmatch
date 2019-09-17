@@ -3,6 +3,7 @@
 """
 import numpy as np
 import scipy as sp
+from scipy import stats
 import numpy.ma
 import logging
 import sys
@@ -41,6 +42,15 @@ def likeliTest(n, y):
         return(a+b)
     elif y == 0:
         return(np.nan)
+
+def test_identity(x, n, error_rate = 0.0005, pthres = 0.05):
+    ## error rate is divided by 100 since it is considered to be a percentage
+    p = 1 - float(error_rate)
+    st = stats.binom_test(x, n, p = p, alternative='less')
+    if st > pthres:
+        return(float(1))
+    else:
+        return(float(0))
 
 class GenotyperOutput(object):
     ## class object for main SNPmatch output
@@ -170,28 +180,33 @@ def potatoGenotyper(args):
     result = genotyper(inputs, args['hdf5File'], args['hdf5accFile'], args['outFile'])
     log.info("finished!")
 
-def pairwiseScore(inFile_1, inFile_2, logDebug, outFile):
+def pairwiseScore(inFile_1, inFile_2, logDebug, outFile, hdf5File = None):
+    log.info("loading input files")
     inputs_1 = parsers.ParseInputs(inFile = inFile_1, logDebug = logDebug)
     inputs_2 = parsers.ParseInputs(inFile = inFile_2, logDebug = logDebug)
+    if hdf5File is not None:
+        log.info("loading database file to identify common SNP positions")
+        g = snp_genotype.Genotype(hdf5File)
+        commonSNPs_1 = g.get_positions_idxs( inputs_1.chrs, inputs_1.pos )
+        common_inds = snp_genotype.Genotype.get_common_positions( inputs_1.chrs[commonSNPs_1[1]], inputs_1.pos[commonSNPs_1[1]], inputs_2.chrs, inputs_2.pos )
+        common_inds = (commonSNPs_1[1][common_inds[0]], common_inds[1])
+    else:
+        log.info("identify common positions")
+        common_inds = snp_genotype.Genotype.get_common_positions( inputs_1.chrs, inputs_1.pos, inputs_2.chrs, inputs_2.pos )
+    log.info("done!")
     snpmatch_stats = {}
-    unique_1, unique_2 = 0, 0
+    unique_1 = len(inputs_1.chrs) - len(common_inds[0])
+    unique_2 = len(inputs_2.chrs) - len(common_inds[0])
     common = np.zeros(0, dtype=int)
     scores = np.zeros(0, dtype=int)
     inputs_1.filter_chr_names()
     inputs_2.filter_chr_names()
     common_chrs = np.intersect1d(inputs_1.g_chrs_ids, inputs_2.g_chrs_ids)
     for i in common_chrs:
-        perchrTarPosInd1 = np.where(inputs_1.g_chrs == i)[0]
-        perchrTarPosInd2 = np.where(inputs_2.g_chrs == i)[0]
+        perchrTarInd = np.where(inputs_1.g_chrs[common_inds[0]] == i)[0]
         log.info("Analysing chromosome %s positions", i)
-        perchrtarSNPpos1 = inputs_1.pos[perchrTarPosInd1]
-        perchrtarSNPpos2 = inputs_2.pos[perchrTarPosInd2]
-        matchedAccInd1 = np.where(np.in1d(perchrtarSNPpos1, perchrtarSNPpos2))[0]
-        matchedAccInd2 = np.where(np.in1d(perchrtarSNPpos2, perchrtarSNPpos1))[0]
-        unique_1 = unique_1 + len(perchrTarPosInd1) - len(matchedAccInd1)
-        unique_2 = unique_2 + len(perchrTarPosInd2) - len(matchedAccInd2)
-        t_common = len(matchedAccInd1)
-        t_scores = np.sum(np.array(inputs_1.gt[matchedAccInd1] == inputs_2.gt[matchedAccInd2], dtype = int))
+        t_common = len(perchrTarInd)
+        t_scores = np.sum(np.array(inputs_1.gt[common_inds[0][perchrTarInd]] == inputs_2.gt[common_inds[1][perchrTarInd]], dtype = int))
         snpmatch_stats[i] = [get_fraction(t_scores, t_common), t_common]
         common = np.append(common, t_common)
         scores = np.append(scores, t_scores)

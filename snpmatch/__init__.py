@@ -83,6 +83,7 @@ def get_options(program_license,program_version_message):
   pairparser = subparsers.add_parser('pairsnp', help="pairwise comparison of two snp files")
   pairparser.add_argument("-i", "--input_file_1", dest="inFile_1", help="VCF/BED file for the variants in the sample one")
   pairparser.add_argument("-j", "--input_file_2", dest="inFile_2", help="VCF/BED file for the variants in the sample two")
+  pairparser.add_argument("-d", "--hdf5_file", dest="hdf5File", default=None, help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   pairparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   pairparser.add_argument("-o", "--output", dest="outFile", default="pairsnp", help="output json file")
   pairparser.set_defaults(func=snpmatch_paircomparions)
@@ -153,7 +154,7 @@ def snpmatch_paircomparions(args):
         die("input file two not specified")
     if not os.path.isfile(args['inFile_2']):
         die("input file two does not exist: " + args['inFile_2'])
-    snpmatch.pairwiseScore(args['inFile_1'], args['inFile_2'], args['logDebug'], args['outFile'])
+    snpmatch.pairwiseScore(args['inFile_1'], args['inFile_2'], args['logDebug'], args['outFile'], args['hdf5File'])
 
 def makedb_vcf_to_hdf5(args):
     if not args['inFile']:
