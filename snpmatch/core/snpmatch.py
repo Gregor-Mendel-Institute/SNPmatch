@@ -181,12 +181,14 @@ def potatoGenotyper(args):
     log.info("finished!")
 
 def pairwiseScore(inFile_1, inFile_2, logDebug, outFile, hdf5File = None):
+    snpmatch_stats = {}
     log.info("loading input files")
     inputs_1 = parsers.ParseInputs(inFile = inFile_1, logDebug = logDebug)
     inputs_2 = parsers.ParseInputs(inFile = inFile_2, logDebug = logDebug)
     if hdf5File is not None:
         log.info("loading database file to identify common SNP positions")
         g = snp_genotype.Genotype(hdf5File)
+        snpmatch_stats['hdf5'] = hdf5File
         commonSNPs_1 = g.get_positions_idxs( inputs_1.chrs, inputs_1.pos )
         common_inds = snp_genotype.Genotype.get_common_positions( inputs_1.chrs[commonSNPs_1[1]], inputs_1.pos[commonSNPs_1[1]], inputs_2.chrs, inputs_2.pos )
         common_inds = (commonSNPs_1[1][common_inds[0]], common_inds[1])
@@ -194,7 +196,6 @@ def pairwiseScore(inFile_1, inFile_2, logDebug, outFile, hdf5File = None):
         log.info("identify common positions")
         common_inds = snp_genotype.Genotype.get_common_positions( inputs_1.chrs, inputs_1.pos, inputs_2.chrs, inputs_2.pos )
     log.info("done!")
-    snpmatch_stats = {}
     unique_1 = len(inputs_1.chrs) - len(common_inds[0])
     unique_2 = len(inputs_2.chrs) - len(common_inds[0])
     common = np.zeros(0, dtype=int)
