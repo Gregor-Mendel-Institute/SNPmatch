@@ -29,10 +29,12 @@ def writeBinData(out_file, bin_inds, GenotypeData, ScoreList, NumInfoSites):
                 score = float(ScoreList[k])/NumInfoSites[k]
                 out_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (GenotypeData.accessions[k], int(ScoreList[k]), NumInfoSites[k], score, likeliScore[k], nextLikeli, len(NumAmb), bin_inds))
 
-def crossWindower(inputs, GenotypeData, binLen, outFile):
+def crossWindower(inputs, GenotypeData, binLen, outFile, mask_acc_ix = None):
     inputs.filter_chr_names()
     num_lines = len(GenotypeData.accessions)
     NumMatSNPs = 0
+    if mask_acc_ix is not None:
+        assert type(mask_acc_ix) is np.ndarray, "please provide numpy array of acc indices to be masked"
     TotScoreList = np.zeros(num_lines, dtype="uint32")
     TotNumInfoSites = np.zeros(num_lines, dtype="uint32")
     TotMatchedTarInds = np.zeros(0, dtype="int")
@@ -64,6 +66,9 @@ def crossWindower(inputs, GenotypeData, binLen, outFile):
             ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
             if(len(TarGTs0[j:j+chunk_size]) >= 1):
                 NumInfoSites = NumInfoSites + len(TarGTs0[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0)
+        if mask_acc_ix is not None:
+            ScoreList[mask_acc_ix] = 0
+            NumInfoSites[mask_acc_ix] = 0
         TotScoreList = TotScoreList + ScoreList
         TotNumInfoSites = TotNumInfoSites + NumInfoSites
         TotMatchedTarInds = np.append(TotMatchedTarInds, matchedTarInd)
@@ -148,15 +153,17 @@ def crossInterpreter(snpmatch_result, GenotypeData, binLen, outID):
         with open(outID + ".matches.json", "w") as out_stats:
             out_stats.write(json.dumps(topHitsDict, sort_keys=True, indent=4))
 
-def crossIdentifier(inputs, g, binLen, outID):
+def crossIdentifier(inputs, g, binLen, outID, genome_id, mask_acc_ix = None):
     ## Get tophit accessions
     # sorting based on the final scores
+    global genome
+    genome = genomes.Genome(genome_id)
     inputs.filter_chr_names()
     if not outID:
         outID = "cross.identifier"
     outFile = outID + '.windowscore.txt'
     scoreFile = outID + '.scores.txt'
-    snpmatch_result = crossWindower(inputs, g.g, binLen, outFile)
+    snpmatch_result = crossWindower(inputs, g.g, binLen, outFile, mask_acc_ix)
     snpmatch_result.print_json_output( scoreFile + ".matches.json" )
     snpmatch.getHeterozygosity(inputs.gt[snpmatch_result.matchedTarInd],  scoreFile + ".matches.json")
     log.info("simulating F1s for top 10 accessions")
@@ -187,11 +194,9 @@ def crossIdentifier(inputs, g, binLen, outID):
 
 def potatoCrossIdentifier(args):
     inputs = parsers.ParseInputs(inFile = args['inFile'], logDebug = args['logDebug'])
-    global genome
-    genome = genomes.Genome(args['genome'])
     log.info("loading genotype files!")
     g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'])
     log.info("done!")
     log.info("running cross identifier!")
-    crossIdentifier(inputs, g, args['binLen'], args['outFile'])
+    crossIdentifier(inputs, g, args['binLen'], args['outFile'], args['genome'])
     log.info("finished!")

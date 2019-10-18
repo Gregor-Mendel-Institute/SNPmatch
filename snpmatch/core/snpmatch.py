@@ -137,7 +137,7 @@ def getHeterozygosity(snpGT, outFile='default'):
           out_stats.write(json.dumps(topHitsDict, sort_keys=True, indent=4))
     return(get_fraction(numHets, len(snpGT)))
 
-def genotyper(inputs, hdf5File, hdf5accFile, outFile):
+def genotyper(inputs, hdf5File, hdf5accFile, outFile, mask_acc_ix = None):
     log.info("loading database files")
     g = snp_genotype.Genotype(hdf5File, hdf5accFile)
     log.info("done!")
@@ -166,6 +166,10 @@ def genotyper(inputs, hdf5File, hdf5accFile, outFile):
         NumInfoSites = NumInfoSites + len(TarGTs0) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
         if j % (chunk_size * 50) == 0:
             log.info("Done analysing %s positions", j+chunk_size)
+    if mask_acc_ix is not None:
+        assert type(mask_acc_ix) is np.ndarray, "provide a numpy array of accessions indices to mask"
+        NumInfoSites[mask_acc_ix] = 0
+        ScoreList[mask_acc_ix] = 0
     log.info("writing score file!")
     overlap = get_fraction(NumMatSNPs, len(inputs.pos))
     result = GenotyperOutput(g.g.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs, inputs.dp)
