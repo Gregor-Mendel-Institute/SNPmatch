@@ -44,10 +44,8 @@ def likeliTest(n, y):
         return(np.nan)
 
 def test_identity(x, n, error_rate = 0.0005, pthres = 0.05):
-    ## error rate is divided by 100 since it is considered to be a percentage
-    p = 1 - float(error_rate)
-    st = stats.binom_test(x, n, p = p, alternative='less')
-    if st > pthres:
+    st = stats.binom_test(int(n - x), n, p = float(error_rate), alternative='less')
+    if st <= pthres:
         return(float(1))
     else:
         return(float(0))
