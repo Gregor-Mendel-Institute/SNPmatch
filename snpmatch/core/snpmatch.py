@@ -44,11 +44,11 @@ def likeliTest(n, y):
         return(np.nan)
 
 def test_identity(x, n, error_rate = 0.0005, pthres = 0.05):
-    st = stats.binom_test(int(n - x), n, p = float(error_rate), alternative='less')
+    st = stats.binom_test(int(n - x), n, p = float(error_rate), alternative='greater')
     if st <= pthres:
-        return(float(1))
-    else:
         return(float(0))
+    else:
+        return(float(1))
 
 class GenotyperOutput(object):
     ## class object for main SNPmatch output

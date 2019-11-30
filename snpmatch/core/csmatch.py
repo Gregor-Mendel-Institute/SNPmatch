@@ -132,6 +132,7 @@ def crossInterpreter(snpmatch_result, GenotypeData, binLen, outID):
                     topHitsDict['parents'] = {'mother': [parents[0], parents_counts[0]], 'father': ["NA", "NA"]}
                     par1_ind = likeLiwind[7][np.where((likeLiwind[0].astype("string") == parents[0]) & np.in1d(likeLiwind[7], homo_wind))[0]]
                     ydict[np.where(np.in1d(xdict,par1_ind))[0]] = parents[0]
+                    chr_bins = None
                 else:
                     topHitsDict['interpretation']['text'] = "Sample may be a F2!"
                     topHitsDict['interpretation']['case'] = 6
