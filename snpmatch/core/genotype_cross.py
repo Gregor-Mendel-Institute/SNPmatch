@@ -85,8 +85,8 @@ class GenotypeCross(object):
             ## die if either parents are not in the dataset
             assert len(parents.split("x")) == 2, "parents should be provided as '6091x6191'"
             try:
-                indP1 = np.where(self.g.g.accessions == parents.split("x")[0])[0][0]
-                indP2 = np.where(self.g.g.accessions == parents.split("x")[1])[0][0]
+                indP1 = np.where(self.g.g_acc.accessions == parents.split("x")[0])[0][0]
+                indP2 = np.where(self.g.g_acc.accessions == parents.split("x")[1])[0][0]
             except:
                 snpmatch.die("parents are not in the dataset")
             snpsP1 = self.g.g_acc.snps[:,indP1]

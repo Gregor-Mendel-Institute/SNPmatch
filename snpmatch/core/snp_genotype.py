@@ -20,11 +20,13 @@ def load_genotype_files(h5file, hdf5_acc_file=None):
 ## Class object adapted from PyGWAS genotype object
 class Genotype(object):
 
-    def __init__(self, hdf5_file, hdf5_acc_file=None):
+    def __init__(self, hdf5_file, hdf5_acc_file):
         assert hdf5_file is not None or hdf5_acc_file is not None, "Provide atleast one hdf5 genotype file"
-        if hdf5_file is None and hdf5_acc_file is not None:
+        if hdf5_file is None:
+            assert os.path.isfile(hdf5_acc_file), "Path to %s seems to be broken" % hdf5_acc_file
             self.g_acc = genotype.load_hdf5_genotype_data(hdf5_acc_file)
             return(None)
+        assert os.path.isfile(hdf5_file), "Path to %s seems to be broken" % hdf5_file
         self.g = genotype.load_hdf5_genotype_data(hdf5_file)
         if hdf5_acc_file is None:
             hdf5_acc_file = re.sub('\.hdf5$', '', hdf5_file) + '.acc.hdf5'
