@@ -20,7 +20,7 @@ def simulateSNPs(g, input_df, numSNPs, outFile, err_rate):
     input_df.iloc[np.sort(np.random.choice(np.arange(input_df.shape[0]), num_to_change, replace=False)), 2] = np.random.choice(3, num_to_change)
     inputs = parsers.ParseInputs(inFile="")
     inputs.load_snp_info(np.array(input_df.iloc[:,0]), np.array(input_df.iloc[:,1]), parsers.snp_binary_to_gt( np.array(input_df.iloc[:,2]) ), inputs.get_wei_from_GT( parsers.snp_binary_to_gt( np.array(input_df.iloc[:,2]) ) ), "NA")
-    snpmatch_result = snpmatch.genotyper(inputs, g.g.h5file.filename, g.g_acc.h5file.filename, outFile)
+    snpmatch_result = snpmatch.genotyper(inputs, g, outFile)
 
 
 def potatoSimulate(args):

@@ -135,10 +135,8 @@ def getHeterozygosity(snpGT, outFile='default'):
           out_stats.write(json.dumps(topHitsDict, sort_keys=True, indent=4))
     return(get_fraction(numHets, len(snpGT)))
 
-def genotyper(inputs, hdf5File, hdf5accFile, outFile, mask_acc_ix = None):
-    log.info("loading database files")
-    g = snp_genotype.Genotype(hdf5File, hdf5accFile)
-    log.info("done!")
+def genotyper(inputs, g, outFile, mask_acc_ix = None):
+    assert type(g) is snp_genotype.Genotype, "provide a snp_genotype.Genotype class for genotypes"
     inputs.filter_chr_names()
     num_lines = len(g.g.accessions)
     ScoreList = np.zeros(num_lines, dtype="float")
@@ -178,8 +176,11 @@ def genotyper(inputs, hdf5File, hdf5accFile, outFile, mask_acc_ix = None):
 
 def potatoGenotyper(args):
     inputs = parsers.ParseInputs(inFile = args['inFile'], logDebug = args['logDebug'])
+    log.info("loading database files")
+    g = snp_genotype.Genotype(hdf5File, hdf5accFile)
+    log.info("done!")
     log.info("running genotyper!")
-    result = genotyper(inputs, args['hdf5File'], args['hdf5accFile'], args['outFile'])
+    result = genotyper(inputs, g, args['outFile'])
     log.info("finished!")
 
 def pairwiseScore(inFile_1, inFile_2, logDebug, outFile, hdf5File = None):
