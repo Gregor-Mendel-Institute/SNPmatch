@@ -21,6 +21,10 @@ def load_genotype_files(h5file, hdf5_acc_file=None):
 class Genotype(object):
 
     def __init__(self, hdf5_file, hdf5_acc_file=None):
+        assert hdf5_file is not None or hdf5_acc_file is not None, "Provide atleast one hdf5 genotype file"
+        if hdf5_file is None and hdf5_acc_file is not None:
+            self.g_acc = genotype.load_hdf5_genotype_data(hdf5_acc_file)
+            return(None)
         self.g = genotype.load_hdf5_genotype_data(hdf5_file)
         if hdf5_acc_file is None:
             hdf5_acc_file = re.sub('\.hdf5$', '', hdf5_file) + '.acc.hdf5'

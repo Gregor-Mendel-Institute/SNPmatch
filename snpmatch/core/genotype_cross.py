@@ -50,12 +50,13 @@ def getWindowGenotype(matchedNos, totalMarkers, lr_thres, n_marker_thres = 5):
 ## New class for genotype cross
 class GenotypeCross(object):
 
-    def __init__(self, hdf5_acc, parents, binLen, father = None, logDebug=True):
+    def __init__(self, g, parents, binLen, father = None, logDebug=True):
         self.logDebug = logDebug
-        self.get_segregating_snps_parents(hdf5_acc, parents, father)
+        self.g = g
+        self.get_segregating_snps_parents(parents, father)
         self.window_size = int(binLen)
 
-    def get_segregating_snps_parents(self, hdf5_acc, parents, father):
+    def get_segregating_snps_parents(self, parents, father):
         log.info("loading genotype data for parents, and identify segregating SNPs")
         if father is not None:
             log.info("input files: %s and %s" % (parents, father))
@@ -81,19 +82,17 @@ class GenotypeCross(object):
             log.info("done!")
         else:
             ## need to filter the SNPs present in C and M
-            log.info("loading HDF5 file")
-            self.g_acc = snp_genotype.load_genotype_files(hdf5_acc).g
             ## die if either parents are not in the dataset
             assert len(parents.split("x")) == 2, "parents should be provided as '6091x6191'"
             try:
-                indP1 = np.where(self.g_acc.accessions == parents.split("x")[0])[0][0]
-                indP2 = np.where(self.g_acc.accessions == parents.split("x")[1])[0][0]
+                indP1 = np.where(self.g.g.accessions == parents.split("x")[0])[0][0]
+                indP2 = np.where(self.g.g.accessions == parents.split("x")[1])[0][0]
             except:
                 snpmatch.die("parents are not in the dataset")
-            snpsP1 = self.g_acc.snps[:,indP1]
-            snpsP2 = self.g_acc.snps[:,indP2]
-            commonSNPsCHR = np.array(self.g_acc.chromosomes)
-            commonSNPsPOS = np.array(self.g_acc.positions)
+            snpsP1 = self.g.g_acc.snps[:,indP1]
+            snpsP2 = self.g.g_acc.snps[:,indP2]
+            commonSNPsCHR = np.array(self.g.g_acc.chromosomes)
+            commonSNPsPOS = np.array(self.g.g_acc.positions)
             log.info("done!")
         segSNPsind = np.where((snpsP1 != snpsP2) & (snpsP1 >= 0) & (snpsP2 >= 0) & (snpsP1 < 2) & (snpsP2 < 2))[0]
         log.info("number of segregating snps between parents: %s", len(segSNPsind))
@@ -289,7 +288,10 @@ def potatoCrossGenotyper(args):
     # 5) Chromosome length
     global genome
     genome = genomes.Genome(args['genome'])
-    crossgenotyper = GenotypeCross(args['hdf5accFile'], args['parents'], args['binLen'], args['father'], args['logDebug'])
+    log.info("loading database files")
+    g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'])
+    log.info("done!")
+    crossgenotyper = GenotypeCross(g, args['parents'], args['binLen'], args['father'], args['logDebug'])
     if args['all_samples']:
         outfile_str = crossgenotyper.genotype_cross_all_samples( args['inFile'], args['lr_thres'], args['good_samples'] )
     elif args['hmm']:
