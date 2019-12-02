@@ -4,11 +4,11 @@
 import numpy as np
 import numpy.ma
 import scipy.stats as st
-from pygwas.core import genotype
 import pandas as pd
 import logging
 import os
 from . import snpmatch
+from . import snp_genotype
 from . import genomes
 import parsers
 import json
@@ -53,7 +53,6 @@ class GenotypeCross(object):
     def __init__(self, hdf5_acc, parents, binLen, father = None, logDebug=True):
         self.logDebug = logDebug
         self.get_segregating_snps_parents(hdf5_acc, parents, father)
-        self.g_acc = hdf5_acc
         self.window_size = int(binLen)
 
     def get_segregating_snps_parents(self, hdf5_acc, parents, father):
@@ -83,18 +82,18 @@ class GenotypeCross(object):
         else:
             ## need to filter the SNPs present in C and M
             log.info("loading HDF5 file")
-            g_acc = genotype.load_hdf5_genotype_data(hdf5_acc)
+            self.g_acc = snp_genotype.load_genotype_files(hdf5_acc).g
             ## die if either parents are not in the dataset
             assert len(parents.split("x")) == 2, "parents should be provided as '6091x6191'"
             try:
-                indP1 = np.where(g_acc.accessions == parents.split("x")[0])[0][0]
-                indP2 = np.where(g_acc.accessions == parents.split("x")[1])[0][0]
+                indP1 = np.where(self.g_acc.accessions == parents.split("x")[0])[0][0]
+                indP2 = np.where(self.g_acc.accessions == parents.split("x")[1])[0][0]
             except:
                 snpmatch.die("parents are not in the dataset")
-            snpsP1 = g_acc.snps[:,indP1]
-            snpsP2 = g_acc.snps[:,indP2]
-            commonSNPsCHR = np.array(g_acc.chromosomes)
-            commonSNPsPOS = np.array(g_acc.positions)
+            snpsP1 = self.g_acc.snps[:,indP1]
+            snpsP2 = self.g_acc.snps[:,indP2]
+            commonSNPsCHR = np.array(self.g_acc.chromosomes)
+            commonSNPsPOS = np.array(self.g_acc.positions)
             log.info("done!")
         segSNPsind = np.where((snpsP1 != snpsP2) & (snpsP1 >= 0) & (snpsP2 >= 0) & (snpsP1 < 2) & (snpsP2 < 2))[0]
         log.info("number of segregating snps between parents: %s", len(segSNPsind))
