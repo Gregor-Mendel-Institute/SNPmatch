@@ -177,7 +177,7 @@ def genotyper(inputs, g, outFile, mask_acc_ix = None):
 def potatoGenotyper(args):
     inputs = parsers.ParseInputs(inFile = args['inFile'], logDebug = args['logDebug'])
     log.info("loading database files")
-    g = snp_genotype.Genotype(hdf5File, hdf5accFile)
+    g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'])
     log.info("done!")
     log.info("running genotyper!")
     result = genotyper(inputs, g, args['outFile'])
