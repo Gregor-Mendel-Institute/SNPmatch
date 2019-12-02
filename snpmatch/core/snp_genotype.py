@@ -124,6 +124,32 @@ class Genotype(object):
         else:
             return(pd_df.dropna(how = "any"))
 
+    def identify_segregating_snps(self, accs_ix ):
+        assert type(accs_ix) is np.ndarray, "provide an np array for list of indices to be considered"
+        assert len(accs_ix) > 1, "polymorphism happens in more than 1 line"
+        if len(accs_ix) == 2:
+            sd
+
+        if len(accs_ix) > (len(self.g.accessions) / 2):
+            return( None )
+        NumSNPs = self.g.positions.shape[0]
+        seg_counts = np.zeros(0, dtype=int)
+        total_counts = np.zeros(0, dtype=int)
+        for j in range(0, NumSNPs, chunk_size):
+            t1001SNPs = np.array(self.g.snps[j:j+chunk_size,:][:,accs_ix], dtype=float)
+            t1001SNPs = segregting_snps( t1001SNPs )
+            seg_counts = np.append(seg_counts, t1001SNPs[0] )
+            total_counts = np.append(total_counts, t1001SNPs[1] )
+        div_counts = np.divide(seg_counts, total_counts, where = total_counts != 0 )
+        seg_ix = np.setdiff1d(np.where(div_counts  < 1 )[0], np.where(total_counts == 0)[0])
+        return( seg_ix )
+
+def segregting_snps(t):
+    t[t < 0] = np.nan
+    t = np.sort(t,axis=1)
+    t_r_sum = np.sum( ~np.isnan(t), axis = 1)
+    t_sum = np.nansum(t[:,1:] == t[:,:-1], axis=1) + 1
+    return((t_sum, t_r_sum))
 
 def _polarize_snps(snps, polarize_geno=1, genotypes=[0, 1]):
     assert len(genotypes) == 2, "assuming it is biallelic"
