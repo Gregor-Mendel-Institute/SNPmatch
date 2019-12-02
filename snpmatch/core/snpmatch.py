@@ -123,6 +123,67 @@ class GenotyperOutput(object):
             note = "Ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
         return(case, note)
 
+class Genotyper(object):
+    ## class object for main SNPmatch
+
+    def __init__(self, inputs, g, outFile, run_genotyper = True, chunk_size = 1000):
+        assert type(g) is snp_genotype.Genotype, "provide a snp_genotype.Genotype class for genotypes"
+        inputs.filter_chr_names()
+        self.chunk_size = chunk_size
+        self.inputs = inputs
+        self.g = g
+        self.num_lines = len(self.g.g.accessions)
+        self.outFile = outFile
+        if run_genotyper:
+            self.result = self.genotyper()
+            self.write_genotyper_output( self.result )
+
+    def get_common_positions(self):
+        self.commonSNPs = self.g.get_positions_idxs( self.inputs.chrs, self.inputs.pos )
+
+    def filter_tophits(self):
+        topHits = np.where(result.lrts < lr_thres)[0]
+        seg_ix = g.identify_segregating_snps( np.array((1, 2, 3, topHits[0])) )
+        import ipdb; ipdb.set_trace()
+
+    def genotyper(self, mask_acc_ix = None):
+        ScoreList = np.zeros(self.num_lines, dtype="float")
+        NumInfoSites = np.zeros(len(self.g.g.accessions), dtype="uint32")
+        self.get_common_positions()
+        NumMatSNPs = len(self.commonSNPs[0])
+        for j in range(0, NumMatSNPs, self.chunk_size):
+            matchedAccInd = self.commonSNPs[0][j:j+self.chunk_size]
+            matchedTarInd = self.commonSNPs[1][j:j+self.chunk_size]
+            matchedTarWei = self.inputs.wei[matchedTarInd,]
+            TarGTs0 = np.zeros(len(matchedTarInd), dtype="int8")
+            TarGTs1 = np.ones(len(matchedTarInd), dtype="int8") + 1
+            TarGTs2 = np.ones(len(matchedTarInd), dtype="int8")
+            t1001SNPs = self.g.g.snps[matchedAccInd,:]
+            samSNPs0 = np.reshape(np.repeat(TarGTs0, self.num_lines), (len(TarGTs0),self.num_lines))
+            samSNPs1 = np.reshape(np.repeat(TarGTs1, self.num_lines), (len(TarGTs1),self.num_lines))
+            samSNPs2 = np.reshape(np.repeat(TarGTs2, self.num_lines), (len(TarGTs2),self.num_lines))
+            tempScore0 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs0, dtype=int).T, matchedTarWei[:,0]).T, axis=0)
+            tempScore1 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs1, dtype=int).T, matchedTarWei[:,1]).T, axis=0)
+            tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[:,2]).T, axis=0)
+            ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
+            NumInfoSites = NumInfoSites + len(TarGTs0) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
+            if j % (self.chunk_size * 50) == 0:
+                log.info("Done analysing %s positions", j+self.chunk_size)
+        if mask_acc_ix is not None:
+            assert type(mask_acc_ix) is np.ndarray, "provide a numpy array of accessions indices to mask"
+            NumInfoSites[mask_acc_ix] = 0
+            ScoreList[mask_acc_ix] = 0
+        overlap = get_fraction(NumMatSNPs, len(self.inputs.pos))
+        return( GenotyperOutput(self.g.g.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs, self.inputs.dp) )
+
+    def write_genotyper_output(self, result):
+        log.info("writing score file!")
+        result.get_likelihoods()
+        result.print_out_table( self.outFile + '.scores.txt' )
+        result.print_json_output( self.outFile + ".matches.json" )
+        getHeterozygosity(self.inputs.gt[self.commonSNPs[1]], self.outFile + ".matches.json")
+        return(result)
+
 
 def getHeterozygosity(snpGT, outFile='default'):
     snpBinary = parsers.parseGT(snpGT)
@@ -135,44 +196,6 @@ def getHeterozygosity(snpGT, outFile='default'):
           out_stats.write(json.dumps(topHitsDict, sort_keys=True, indent=4))
     return(get_fraction(numHets, len(snpGT)))
 
-def genotyper(inputs, g, outFile, mask_acc_ix = None):
-    assert type(g) is snp_genotype.Genotype, "provide a snp_genotype.Genotype class for genotypes"
-    inputs.filter_chr_names()
-    num_lines = len(g.g.accessions)
-    ScoreList = np.zeros(num_lines, dtype="float")
-    NumInfoSites = np.zeros(len(g.g.accessions), dtype="uint32")
-    chunk_size = 1000
-    commonSNPs = g.get_positions_idxs( inputs.chrs, inputs.pos )
-    NumMatSNPs = len(commonSNPs[0])
-    for j in range(0, NumMatSNPs, chunk_size):
-        matchedAccInd = commonSNPs[0][j:j+chunk_size]
-        matchedTarInd = commonSNPs[1][j:j+chunk_size]
-        matchedTarWei = inputs.wei[matchedTarInd,]
-        TarGTs0 = np.zeros(len(matchedTarInd), dtype="int8")
-        TarGTs1 = np.ones(len(matchedTarInd), dtype="int8") + 1
-        TarGTs2 = np.ones(len(matchedTarInd), dtype="int8")
-        t1001SNPs = g.g.snps[matchedAccInd,:]
-        samSNPs0 = np.reshape(np.repeat(TarGTs0, num_lines), (len(TarGTs0),num_lines))
-        samSNPs1 = np.reshape(np.repeat(TarGTs1, num_lines), (len(TarGTs1),num_lines))
-        samSNPs2 = np.reshape(np.repeat(TarGTs2, num_lines), (len(TarGTs2),num_lines))
-        tempScore0 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs0, dtype=int).T, matchedTarWei[:,0]).T, axis=0)
-        tempScore1 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs1, dtype=int).T, matchedTarWei[:,1]).T, axis=0)
-        tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[:,2]).T, axis=0)
-        ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
-        NumInfoSites = NumInfoSites + len(TarGTs0) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
-        if j % (chunk_size * 50) == 0:
-            log.info("Done analysing %s positions", j+chunk_size)
-    if mask_acc_ix is not None:
-        assert type(mask_acc_ix) is np.ndarray, "provide a numpy array of accessions indices to mask"
-        NumInfoSites[mask_acc_ix] = 0
-        ScoreList[mask_acc_ix] = 0
-    log.info("writing score file!")
-    overlap = get_fraction(NumMatSNPs, len(inputs.pos))
-    result = GenotyperOutput(g.g.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs, inputs.dp)
-    result.print_out_table( outFile + '.scores.txt' )
-    result.print_json_output( outFile + ".matches.json" )
-    getHeterozygosity(inputs.gt[commonSNPs[1]], outFile + ".matches.json")
-    return(result)
 
 def potatoGenotyper(args):
     inputs = parsers.ParseInputs(inFile = args['inFile'], logDebug = args['logDebug'])
@@ -180,7 +203,7 @@ def potatoGenotyper(args):
     g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'])
     log.info("done!")
     log.info("running genotyper!")
-    result = genotyper(inputs, g, args['outFile'])
+    genotyper = Genotyper(inputs, g, args['outFile'], run_genotyper=True)
     log.info("finished!")
 
 def pairwiseScore(inFile_1, inFile_2, logDebug, outFile, hdf5File = None):
