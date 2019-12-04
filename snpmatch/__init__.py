@@ -45,6 +45,7 @@ def get_options(program_license,program_version_message):
   inbred_parser.add_argument("-i", "--input_file", dest="inFile", help="VCF/BED file for the variants in the sample")
   inbred_parser.add_argument("-d", "--hdf5_file", default = None, dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   inbred_parser.add_argument("-e", "--hdf5_acc_file", default = None, dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
+  inbred_parser.add_argument("--refine", action="store_true", dest="refine", default=False, help="Refine scores for indistinguishable lines")
   inbred_parser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   inbred_parser.add_argument("-o", "--output", dest="outFile", default="identify_inbred", help="Output file with the probability scores")
   inbred_parser.set_defaults(func=snpmatch_inbred)

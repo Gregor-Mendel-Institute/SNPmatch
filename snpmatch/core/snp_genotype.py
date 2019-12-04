@@ -127,11 +127,16 @@ class Genotype(object):
     def identify_segregating_snps(self, accs_ix ):
         assert type(accs_ix) is np.ndarray, "provide an np array for list of indices to be considered"
         assert len(accs_ix) > 1, "polymorphism happens in more than 1 line"
-        if len(accs_ix) == 2:
-            sd
-
         if len(accs_ix) > (len(self.g.accessions) / 2):
             return( None )
+        if len(accs_ix) < 10:
+            t_snps = np.zeros(( self.g_acc.snps.shape[0], len(accs_ix) ))
+            for ef in range(len(accs_ix)):
+                t_snps[:,ef] = self.g_acc.snps[:,accs_ix[ef]]
+            seg_counts = segregting_snps(t_snps)
+            div_counts = np.divide(seg_counts[0], seg_counts[1], where = seg_counts[1] != 0 )
+            seg_ix = np.setdiff1d(np.where(div_counts  < 1 )[0], np.where(seg_counts[1] == 0)[0])
+            return( seg_ix )
         NumSNPs = self.g.positions.shape[0]
         seg_counts = np.zeros(0, dtype=int)
         total_counts = np.zeros(0, dtype=int)

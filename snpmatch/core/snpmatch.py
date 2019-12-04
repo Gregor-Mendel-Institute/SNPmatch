@@ -120,7 +120,7 @@ class GenotyperOutput(object):
             note = "Ambiguous sample: Sample might contain mixture of DNA or contamination"
         elif self.overlap < overlap_thres:
             case = 4
-            note = "Ambiguous sample: Overlap of SNPs is very low, sample may not be in database"
+            note = "Ambiguous sample: Many input SNP positions are missing in db positions. Maybe sample  not one in database"
         return(case, note)
 
 class Genotyper(object):
@@ -142,14 +142,32 @@ class Genotyper(object):
         self.commonSNPs = self.g.get_positions_idxs( self.inputs.chrs, self.inputs.pos )
 
     def filter_tophits(self):
-        topHits = np.where(result.lrts < lr_thres)[0]
-        seg_ix = g.identify_segregating_snps( np.array((1, 2, 3, topHits[0])) )
-        import ipdb; ipdb.set_trace()
+        self.result = self.genotyper()
+        self.write_genotyper_output( self.result )
+        self.result.get_likelihoods()
+        topHits =  np.where(self.result.lrts < lr_thres)[0]
+        if len(topHits) == 1:
+            log.info("Done! It is a perfect hit")
+            return(None)
+        log.info("#lines indistinguishable: %s" % len(topHits))
+        log.info("refining likelihoods for only indistinguishable lines")
+        if len(topHits) > (self.num_lines / 2):
+            die("too many lines are indistinguishable, skipping refining likelihoods step")
+        seg_ix = self.g.identify_segregating_snps( topHits )
+        self.result_fine = self.genotyper( filter_pos_ix = seg_ix, mask_acc_ix = np.where(self.result.lrts >= lr_thres)[0]  )
+        log.info("writing output: %s" % self.outFile + ".refined.scores.txt")
+        self.result_fine.print_out_table( self.outFile + ".refined.scores.txt" )
 
-    def genotyper(self, mask_acc_ix = None):
+    def genotyper(self, filter_pos_ix = None, mask_acc_ix = None):
         ScoreList = np.zeros(self.num_lines, dtype="float")
         NumInfoSites = np.zeros(len(self.g.g.accessions), dtype="uint32")
         self.get_common_positions()
+        if filter_pos_ix is not None:
+            assert type(filter_pos_ix) is np.ndarray, "provide np array for indices to be considered"
+            t_ix = np.where(np.in1d(self.commonSNPs[0], filter_pos_ix))[0]
+            if t_ix.shape[0] < 100:
+                log.info("#positions in segregating sites are are too little: %s" % t_ix.shape[0])
+            self.commonSNPs = (self.commonSNPs[0][t_ix], self.commonSNPs[1][t_ix] )
         NumMatSNPs = len(self.commonSNPs[0])
         for j in range(0, NumMatSNPs, self.chunk_size):
             matchedAccInd = self.commonSNPs[0][j:j+self.chunk_size]
@@ -169,11 +187,11 @@ class Genotyper(object):
             NumInfoSites = NumInfoSites + len(TarGTs0) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
             if j % (self.chunk_size * 50) == 0:
                 log.info("Done analysing %s positions", j+self.chunk_size)
+        overlap = get_fraction(NumMatSNPs, len(self.inputs.pos))
         if mask_acc_ix is not None:
             assert type(mask_acc_ix) is np.ndarray, "provide a numpy array of accessions indices to mask"
-            NumInfoSites[mask_acc_ix] = 0
-            ScoreList[mask_acc_ix] = 0
-        overlap = get_fraction(NumMatSNPs, len(self.inputs.pos))
+            mask_acc_to_print = np.setdiff1d(np.arange( self.num_lines ), mask_acc_ix)
+            return( GenotyperOutput(self.g.g.accessions[mask_acc_to_print], ScoreList[mask_acc_to_print], NumInfoSites[mask_acc_to_print], overlap, NumMatSNPs, self.inputs.dp) )
         return( GenotyperOutput(self.g.g.accessions, ScoreList, NumInfoSites, overlap, NumMatSNPs, self.inputs.dp) )
 
     def write_genotyper_output(self, result):
@@ -203,6 +221,11 @@ def potatoGenotyper(args):
     g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'])
     log.info("done!")
     log.info("running genotyper!")
+    if args['refine']:
+        genotyper = Genotyper(inputs, g, args['outFile'], run_genotyper=False)
+        genotyper.filter_tophits()
+        log.info("finished!")
+        return(None)
     genotyper = Genotyper(inputs, g, args['outFile'], run_genotyper=True)
     log.info("finished!")
 
