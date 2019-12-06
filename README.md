@@ -108,7 +108,7 @@ snpmatch cross -v -d db.hdf5 -e db.acc.hdf5 -i input_file -b window_size_in_bp -
 #to identify the windows matching to each parent in a hybrid
 ```
 
-These scripts are implemented based on the *A. thaliana* genome sizes. But please change `--genome` option by providing JSON file [generated](### Database files) while working with other genomes.
+These scripts are implemented based on the *A. thaliana* genome sizes. But please change `--genome` option by providing JSON file [generated](###Database-files) while working with other genomes.
 
 ### Output files for cross
 We have three output files for the cross match in SNPmatch
@@ -119,14 +119,14 @@ The file provides information on the strains that match to input sample for each
 
 |1|2|3|4|5|6|7|8|
 |---|---|---|---|---|---|---|---|
-|1006|11|11|1.0|1.0|14.413599933851167|222|1|
-|1158|11|11|1.0|1.0|14.413599933851167|222|1|
-|1166|11|11|1.0|1.0|14.413599933851167|222|1|
+|1006|11|11|1.0|1.0|1|222|1|
+|1158|11|11|1.0|1.0|1|222|1|
+|1166|11|11|1.0|1.0|1|222|1|
 
-Here columns are strain ID, number of SNPs matched, Informative SNPs, Probability of match, Likelihood, Likelihood ratio for the strain that matches alternatively, Number of strains that match at this window, window ID (number starting for 1 covering genome linearly).
+Here columns are strain ID, number of SNPs matched, Informative SNPs, Probability of match, Likelihood, Is the window identical to the line? used a simple binomial test, Number of strains that match at this window, window ID (number starting for 1 covering genome linearly).
 Filtering this table by column 7 having 1 would result in homozygous windows.
 
-3. `output_file.scores.txt.matches.json` --- JSON file
+3. `output_file.matches.json` --- JSON file
 
 The file containing the list of matched strains, list of homozygous windows and strains matched to them and along with a simple interpretation.
 
