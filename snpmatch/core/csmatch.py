@@ -152,7 +152,7 @@ class CrossIdentifier(object):
             identical_wind = np.where(self.windows_data.groupby('window_index').max()['identical'] == 1)[0]
             num_winds = np.unique(self.windows_data['window_index']).shape[0]
             self.cross_identfier_json['identical_windows'] = [ snpmatch.get_fraction( identical_wind.shape[0], num_winds ), num_winds ]
-            homo_wind = np.intersect1d(self.windows_data['window_index'][np.where(self.windows_data['num_amb'] == 1)[0]], identical_wind)
+            homo_wind = np.intersect1d(self.windows_data['window_index'][np.where(self.windows_data['num_amb'] < 20 )[0]], identical_wind)
             homo_acc = np.unique(self.windows_data.iloc[:,0][np.where(np.in1d(self.windows_data.iloc[:,7], homo_wind))[0]],return_counts=True)
             matches_dict = [(homo_acc[0][i], homo_acc[1][i]) for i in np.argsort(-homo_acc[1])]
             self.cross_identfier_json['matches'] = matches_dict
