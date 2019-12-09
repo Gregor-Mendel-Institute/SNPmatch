@@ -152,7 +152,8 @@ class Genotyper(object):
         log.info("#lines indistinguishable: %s" % len(topHits))
         log.info("refining likelihoods for only indistinguishable lines")
         if len(topHits) > (self.num_lines / 2):
-            die("too many lines are indistinguishable, skipping refining likelihoods step")
+            log.info("too many lines are indistinguishable, skipping refining likelihoods step")
+            return(None)
         seg_ix = self.g.identify_segregating_snps( topHits )
         self.result_fine = self.genotyper( filter_pos_ix = seg_ix, mask_acc_ix = np.where(self.result.lrts >= lr_thres)[0]  )
         log.info("writing output: %s" % self.outFile + ".refined.scores.txt")
