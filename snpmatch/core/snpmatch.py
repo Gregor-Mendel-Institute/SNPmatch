@@ -50,6 +50,8 @@ def test_identity(x, n, error_rate = 0.0005, pthres = 0.05):
     else:
         return(float(1))
 
+np_test_identity = np.vectorize(test_identity, excluded=["pthres", "error_rate"])
+
 class GenotyperOutput(object):
     ## class object for main SNPmatch output
 
