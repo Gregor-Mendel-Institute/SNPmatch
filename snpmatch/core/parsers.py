@@ -5,6 +5,7 @@ import snpmatch
 import logging
 import os
 import json
+import re
 
 log = logging.getLogger(__name__)
 
@@ -61,9 +62,8 @@ class ParseInputs(object):
                 self.load_snp_info(snps['chr'], snps['pos'], snps['gt'], snps['wei'], snps['dp'])
             else:
                 log.info('running snpmatch parser!')
-                if inType == '.vcf':
+                if inType == '.vcf' or len(re.compile(".vcf.gz$").findall(os.path.basename(inFile))) > 0 :
                     (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = self.read_vcf(inFile, logDebug)
-
                 elif inType == '.bed':
                     (snpCHR, snpPOS, snpGT, snpWEI, DPmean) = self.read_bed(inFile, logDebug)
                 else:
