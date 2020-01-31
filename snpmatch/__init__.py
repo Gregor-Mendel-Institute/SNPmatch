@@ -16,8 +16,8 @@ from snpmatch.core import makedb
 from snpmatch.core import simulate
 import logging, logging.config
 
-__version__ = '3.0.1'
-__updated__ = "24.06.2019"
+__version__ = '4.0.0'
+__updated__ = "31.01.2020"
 __date__ = "25.10.2016"
 
 def setLog(logDebug):
