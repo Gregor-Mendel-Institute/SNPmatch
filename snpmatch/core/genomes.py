@@ -1,6 +1,7 @@
 # Loading genome data
 import logging
 import numpy as np
+import pandas as pd
 import json
 import os.path
 
@@ -22,7 +23,7 @@ class Genome(object):
         assert os.path.exists(ref_json), "Reference json file missing: %s" % ref_json
         with open(ref_json) as ref_genome:
             self.json = json.load(ref_genome)
-        self.chrs = np.array(self.json['ref_chrs'], dtype="string")
+        self.chrs = np.array(self.json['ref_chrs'], dtype="str")
         self.chrlen = np.array(self.json['ref_chrlen'], dtype = int)
         self.chrs_ids = np.char.replace(np.core.defchararray.lower(self.chrs), "chr", "")
 
@@ -71,7 +72,7 @@ class Genome(object):
 
     def get_bins_genome(self, g, binLen):
         binLen = int(binLen)
-        g_chrs_ids = np.char.replace(np.core.defchararray.lower(np.array(g.chrs, dtype="string")), "chr", "")
+        g_chrs_ids = np.char.replace(np.core.defchararray.lower(np.array(g.chrs, dtype="str")), "chr", "")
         common_chr_ids = np.intersect1d(g_chrs_ids, self.chrs_ids)
         assert len(g_chrs_ids) <= len(self.chrs_ids), "Please change default --genome option"
         assert len(common_chr_ids) > 0, "Please change default --genome option"
@@ -90,7 +91,7 @@ class Genome(object):
                 yield((chr_ix, e_bin[0], e_bin[1]))
 
     def get_bins_arrays(self, g_chrs, g_snppos, binLen):
-        g_chrs = np.char.replace(np.core.defchararray.lower(np.array(g_chrs, dtype="string")), "chr", "")
+        g_chrs = np.char.replace(np.core.defchararray.lower(np.array(g_chrs, dtype="str")), "chr", "")
         g_chrs_ids = np.unique(g_chrs)
         common_chr_ids = np.intersect1d(g_chrs_ids, self.chrs_ids)
         assert len(g_chrs_ids) <= len(self.chrs_ids), "Please change default --genome option"
@@ -105,6 +106,7 @@ class Genome(object):
                 echr_bins = get_bins_echr(self.chrlen[chr_ix], g_snppos[chr_pos_ix], binLen, 0)
             for e_bin in echr_bins:
                 yield((chr_ix, e_bin[0], e_bin[1]))
+
 
 def get_bins_echr(real_chrlen, chr_pos, binLen, rel_ix):
     ind = 0

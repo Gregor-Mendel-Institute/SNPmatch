@@ -10,7 +10,7 @@ import os
 from . import snpmatch
 from . import snp_genotype
 from . import genomes
-import parsers
+from . import parsers
 import json
 import itertools
 
@@ -50,7 +50,7 @@ def getWindowGenotype(matchedNos, totalMarkers, lr_thres, n_marker_thres = 5):
 ## New class for genotype cross
 class GenotypeCross(object):
 
-    def __init__(self, g, parents, binLen, father = None, logDebug=True):
+    def __init__(self, g, parents, binLen = 0, father = None, logDebug=True):
         self.logDebug = logDebug
         self.g = g
         self.get_segregating_snps_parents(parents, father)
@@ -61,7 +61,7 @@ class GenotypeCross(object):
         if father is not None:
             log.info("input files: %s and %s" % (parents, father))
             if not os.path.isfile(parents) and os.path.isfile(father):
-                die("either of the input files do not exists, please provide VCF/BED file for parent genotype information")
+                snpmatch.die("either of the input files do not exists, please provide VCF/BED file for parent genotype information")
             p1_snps = parsers.ParseInputs(inFile = parents, logDebug = self.logDebug)
             p2_snps = parsers.ParseInputs(inFile = father, logDebug = self.logDebug)
             commonCHRs_ids = np.union1d(p1_snps.chrs, p2_snps.chrs)

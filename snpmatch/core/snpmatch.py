@@ -232,14 +232,14 @@ def potatoGenotyper(args):
     genotyper = Genotyper(inputs, g, args['outFile'], run_genotyper=True)
     log.info("finished!")
 
-def pairwiseScore(inFile_1, inFile_2, logDebug, outFile, hdf5File = None):
+def pairwiseScore(inFile_1, inFile_2, logDebug, outFile = None, hdf5File = None):
     snpmatch_stats = {}
     log.info("loading input files")
     inputs_1 = parsers.ParseInputs(inFile = inFile_1, logDebug = logDebug)
     inputs_2 = parsers.ParseInputs(inFile = inFile_2, logDebug = logDebug)
     if hdf5File is not None:
         log.info("loading database file to identify common SNP positions")
-        g = snp_genotype.Genotype(hdf5File)
+        g = snp_genotype.Genotype(hdf5File, None)
         snpmatch_stats['hdf5'] = hdf5File
         commonSNPs_1 = g.get_positions_idxs( inputs_1.chrs, inputs_1.pos )
         common_inds = snp_genotype.Genotype.get_common_positions( inputs_1.chrs[commonSNPs_1[1]], inputs_1.pos[commonSNPs_1[1]], inputs_2.chrs, inputs_2.pos )
@@ -265,9 +265,10 @@ def pairwiseScore(inFile_1, inFile_2, logDebug, outFile, hdf5File = None):
         scores = np.append(scores, t_scores)
     snpmatch_stats['matches'] = [get_fraction(np.sum(scores), np.sum(common)), np.sum(common)]
     snpmatch_stats['unique'] = {"%s" % os.path.basename(inFile_1): [get_fraction(unique_1, len(inputs_1.chrs)), len(inputs_1.chrs)], "%s" % os.path.basename(inFile_2): [get_fraction(unique_2, len(inputs_2.chrs)), len(inputs_2.chrs)] }
-    if not outFile:
-        outFile = "genotyper"
-    log.info("writing output in a file: %s" % outFile + ".matches.json")
-    with open(outFile + ".matches.json", "w") as out_stats:
-        out_stats.write(json.dumps(snpmatch_stats, sort_keys=True, indent=4))
-    log.info("finished!")
+    if outFile:
+        # outFile = "genotyper"
+        log.info("writing output in a file: %s" % outFile + ".matches.json")
+        with open(outFile + ".matches.json", "w") as out_stats:
+            out_stats.write(json.dumps(snpmatch_stats, sort_keys=True, indent=4))
+        log.info("finished!")
+    return(snpmatch_stats)

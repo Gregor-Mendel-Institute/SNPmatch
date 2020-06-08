@@ -13,6 +13,7 @@ setup(
     version='4.0.0',
     description='A simple python library to identify the most likely strain given the SNPs for a sample',
     long_description=long_description,
+    long_description_content_type='text/markdown',  # This is important for PyPi packaging
     url='https://github.com/Gregor-Mendel-Institute/SNPmatch',
     author=['Rahul Pisupati'],
     author_email='rahul.pisupati@gmi.oeaw.ac.at',
