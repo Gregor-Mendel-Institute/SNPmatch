@@ -62,7 +62,7 @@ class CrossIdentifier(object):
         # out_file.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (AccList[k], int(ScoreList[k]), NumInfoSites[k], score, likeliScore[k], nextLikeli, len(NumAmb), bin_inds, identity[k]))
 
     def window_genotyper(self, out_file, mask_acc_ix = None):
-        num_lines = len(self.g.g.accessions)
+        num_lines = len(self.g.accessions)
         NumMatSNPs = 0
         if mask_acc_ix is not None:
             assert type(mask_acc_ix) is np.ndarray, "please provide numpy array of acc indices to be masked"
@@ -77,7 +77,7 @@ class CrossIdentifier(object):
         self.windows_data = pd.DataFrame( columns = ["acc", "snps_match", "snps_info", "score", "likelihood", "identical", "num_amb", "window_index"] )
         bin_inds = 1
         winds_chrs = np.zeros(0, dtype = self.g.g.chrs.dtype)
-        for e_g, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
+        for e_g, e_s in zip(iter_bins_genome, iter_bins_snps):
             g_bin_pos = self.g.g.positions[e_g[2]]
             perchrtarSNPpos = self.inputs.pos[e_s[2]]
             matchedAccInd = np.array(e_g[2], dtype=int)[np.where(np.in1d(g_bin_pos, perchrtarSNPpos))[0]]
@@ -103,21 +103,27 @@ class CrossIdentifier(object):
             TotScoreList = TotScoreList + ScoreList
             TotNumInfoSites = TotNumInfoSites + NumInfoSites
             TotMatchedTarInds = np.append(TotMatchedTarInds, matchedTarInd)
-            self.windows_data = self.windows_data.append( self.get_window_data(bin_inds, self.g.g.accessions[mask_acc_to_print], ScoreList[mask_acc_to_print], NumInfoSites[mask_acc_to_print], self.error_rate), ignore_index=True )
+            self.windows_data = self.windows_data.append( self.get_window_data(bin_inds, self.g.accessions[mask_acc_to_print], ScoreList[mask_acc_to_print], NumInfoSites[mask_acc_to_print], self.error_rate), ignore_index=True )
             winds_chrs = np.append( winds_chrs, self.genome.chrs_ids[e_g[0]] )
             if bin_inds % 50 == 0:
                 log.info("Done analysing %s positions", NumMatSNPs)
             bin_inds += 1
-        self.windows_data.to_csv(out_file, sep = "\t", index = False)
         overlap = snpmatch.get_fraction(NumMatSNPs, len(self.inputs.pos))
-        result = snpmatch.GenotyperOutput(self.g.g.accessions[mask_acc_to_print], TotScoreList[mask_acc_to_print], TotNumInfoSites[mask_acc_to_print], overlap, NumMatSNPs, self.inputs.dp)
+        result = snpmatch.GenotyperOutput(self.g.accessions[mask_acc_to_print], TotScoreList[mask_acc_to_print], TotNumInfoSites[mask_acc_to_print], overlap, NumMatSNPs, self.inputs.dp)
         result.matchedTarInd = TotMatchedTarInds
         result.winds_chrs = winds_chrs
-        return(result)
+        if out_file is not None:
+            self.windows_data.to_csv(out_file, sep = "\t", index = False)
+            return(result)
+        else:
+            return([self.windows_data, result])
 
     def match_insilico_f1s(self, snpmatch_result, out_file):
         ## Get tophit accessions
         # sorting based on the final scores
+        assert type(snpmatch_result) is snpmatch.GenotyperOutput, "Please provide GenotyperOutput class as input"
+        if not hasattr(snpmatch_result, 'probabilies'):
+            snpmatch_result.get_probabilities()
         log.info("simulating F1s for top 10 accessions")
         TopHitAccs = np.argsort(-snpmatch_result.probabilies)[0:10]
         commonSNPs = self.g.get_positions_idxs( self.inputs.chrs, self.inputs.pos )
@@ -139,8 +145,9 @@ class CrossIdentifier(object):
                 numinfo = numinfo + len(homalt) + len(homref) + len(het)
             snpmatch_result.scores = np.append(snpmatch_result.scores, score)
             snpmatch_result.ninfo = np.append(snpmatch_result.ninfo, numinfo)
-            snpmatch_result.accs = np.append( snpmatch_result.accs, self.g.g.accessions[i] + "x" + self.g.g.accessions[j] )
-        snpmatch_result.print_out_table( out_file )
+            snpmatch_result.accs = np.append( snpmatch_result.accs, self.g.accessions[i] + "x" + self.g.accessions[j] )
+        if out_file is not None:
+            snpmatch_result.print_out_table( out_file )
         return(snpmatch_result)
 
     def cross_interpreter(self, out_file):
@@ -157,7 +164,7 @@ class CrossIdentifier(object):
             matches_dict = [(homo_acc[0][i], homo_acc[1][i]) for i in np.argsort(-homo_acc[1])]
             self.cross_identfier_json['matches'] = matches_dict
             topMatch = np.argsort(self.result.likelis)[0]  ## top F1 match sorted based on likelihood
-            if topMatch in np.where(~np.in1d(self.result.accs, self.g.g.accessions))[0]:
+            if topMatch in np.where(~np.in1d(self.result.accs, self.g.accessions))[0]:
                 mother = self.result.accs[topMatch].split("x")[0]
                 father = self.result.accs[topMatch].split("x")[1]
                 self.cross_identfier_json['interpretation']['text'] = "Sample may be a F1! or a contamination!"
