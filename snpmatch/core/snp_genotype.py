@@ -34,9 +34,11 @@ class Genotype(object):
                 self.g_acc = genotype.load_hdf5_genotype_data(hdf5_acc_file)
         else:
             self.g_acc = genotype.load_hdf5_genotype_data(hdf5_acc_file)
+        self.accessions = self.g.accessions.astype('U')
+        self.chrs = self.g.chrs.astype('U')
 
     def get_positions_idxs(self, commonSNPsCHR, commonSNPsPOS):
-        return(self.get_common_positions( np.array(self.g.chromosomes, dtype="string"), self.g.positions, commonSNPsCHR, commonSNPsPOS ))
+        return(self.get_common_positions( np.array(self.g.chromosomes), self.g.positions, commonSNPsCHR, commonSNPsPOS ))
 
     @staticmethod
     def get_common_positions(input_1_chr, input_1_pos, input_2_chr, input_2_pos):
@@ -63,7 +65,7 @@ class Genotype(object):
     def get_matching_accs_ix(self, accs, return_np=False):
         acc_ix = []
         for ea in accs:
-            t_ix = np.where(self.g.accessions == ea)[0]
+            t_ix = np.where(self.accessions == ea)[0]
             if len(t_ix) == 0:
                 acc_ix.append(None)
             else:
@@ -86,7 +88,7 @@ class Genotype(object):
                 pos_ix = np.append(pos_ix, t_filter + t_ix)
         elif pos_ix is not None and accs_ix is None:
             req_snps = self.g.snps[pos_ix,:]
-            accs_ix = np.arange(self.g.accessions.shape[0])
+            accs_ix = np.arange(self.accessions.shape[0])
         elif accs_ix is not None and pos_ix is not None:
             req_snps = self.g.snps[pos_ix,:][:,accs_ix]
         else:
@@ -127,7 +129,7 @@ class Genotype(object):
     def identify_segregating_snps(self, accs_ix ):
         assert type(accs_ix) is np.ndarray, "provide an np array for list of indices to be considered"
         assert len(accs_ix) > 1, "polymorphism happens in more than 1 line"
-        if len(accs_ix) > (len(self.g.accessions) / 2):
+        if len(accs_ix) > (len(self.accessions) / 2):
             return( None )
         if len(accs_ix) < 10:
             t_snps = np.zeros(( self.g_acc.snps.shape[0], len(accs_ix) ))
@@ -148,6 +150,43 @@ class Genotype(object):
         div_counts = np.divide(seg_counts, total_counts, where = total_counts != 0 )
         seg_ix = np.setdiff1d(np.where(div_counts  < 1 )[0], np.where(total_counts == 0)[0])
         return( seg_ix )
+
+    def get_chr_ind(self, echr):
+        real_chrs = np.array( [ ec.replace("Chr", "").replace("chr", "") for ec in self.chrs ] )
+        if type(echr) is str or type(echr) is np.string_:
+            echr_num = str(echr).replace("Chr", "").replace("chr", "")
+            if len(np.where(real_chrs == echr_num)[0]) == 1:
+                return(np.where(real_chrs == echr_num)[0][0])
+            else:
+                return(None)
+        echr_num = np.unique( np.array( echr ) )
+        ret_echr_ix = np.zeros( len(echr), dtype="int8" )
+        for ec in echr_num:
+            t_ix = np.where(real_chrs ==  str(ec).replace("Chr", "").replace("chr", "") )[0]
+            ret_echr_ix[ np.where(np.array( echr ) == ec)[0] ] = t_ix[0]
+        return(ret_echr_ix)
+
+    def determine_snp_ix_given_bed(self, req_bed):
+        """
+        Determine the indices of hdf5 file from the bed positions
+        input: 
+            req_bed: either a array ["Chr1", 1, 100] or a string "Chr1,1,1000"
+        output: 
+            Numpy array of indices
+        """
+        if type(req_bed) is str:
+            req_bed = req_bed.split(",")
+            assert len(req_bed) == 3, "provide a bed region, ex. Chr1,1,1000"
+            req_bed[1] = int(req_bed[1])
+            req_bed[2] = int(req_bed[2])
+        g_chr_pos = self.g.chr_regions[ self.get_chr_ind( req_bed[0] ) ]
+        snp_ix = np.where(
+            (self.g.positions[g_chr_pos[0]:g_chr_pos[1]] <= req_bed[2]) &
+            (self.g.positions[g_chr_pos[0]:g_chr_pos[1]] >= req_bed[1])
+        )[0] + g_chr_pos[0]
+        return(snp_ix)
+
+
 
 def segregting_snps(t):
     t[t < 0] = np.nan
