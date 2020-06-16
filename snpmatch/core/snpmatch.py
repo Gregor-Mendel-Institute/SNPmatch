@@ -2,6 +2,7 @@
   SNPmatch
 """
 import numpy as np
+import pandas as pd
 import scipy as sp
 from scipy import stats
 import numpy.ma
@@ -56,7 +57,7 @@ class GenotyperOutput(object):
     ## class object for main SNPmatch output
 
     def __init__(self, AccList, ScoreList, NumInfoSites, overlap, NumMatSNPs, DPmean ):
-        self.accs = np.array(AccList, dtype="string")
+        self.accs = np.array(AccList, dtype="str")
         self.scores = np.array(ScoreList, dtype="int")
         self.ninfo = np.array(NumInfoSites, dtype="int")
         self.overlap = overlap
@@ -86,14 +87,19 @@ class GenotyperOutput(object):
     def print_out_table(self, outFile):
         self.get_likelihoods()
         self.get_probabilities()
+        output_table = pd.DataFrame( {
+            'accs': self.accs,
+            'matches': self.scores,
+            'ninfo': self.ninfo,
+            'probabilities': self.probabilies,
+            'likelihood': self.likelis,
+            'lrt': self.lrts,
+            'num_snps': self.num_snps,
+            'dp': self.dp 
+        } )
         if outFile:
-            out = open(outFile, 'w')
-            for i in range(len(self.accs)):
-                out.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (self.accs[i], self.scores[i], self.ninfo[i], self.probabilies[i], self.likelis[i], self.lrts[i], self.num_snps, self.dp))
-            out.close()
-        else:
-            for i in range(len(self.accs)):
-                sys.stdout.write("%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n" % (self.accs[i], self.scores[i], self.ninfo[i], self.probabilies[i], self.likelis[i], self.lrts[i], self.num_snps, self.dp))
+            output_table.to_csv( outFile, header = None, sep = "\t", index = None )
+        return( output_table )
 
     def print_json_output(self, outFile):
         self.get_likelihoods()
@@ -102,7 +108,7 @@ class GenotyperOutput(object):
         overlapScore = [get_fraction(self.ninfo[i], self.num_snps) for i in range(len(self.accs))]
         sorted_order = topHits[np.argsort(-self.probabilies[topHits])]
         (case, note) = self.case_interpreter(topHits)
-        matches_dict = [(self.accs[i], self.probabilies[i], self.ninfo[i], overlapScore[i]) for i in sorted_order]
+        matches_dict = [(str(self.accs[i]), float(self.probabilies[i]), int(self.ninfo[i]), float(overlapScore[i])) for i in sorted_order]
         topHitsDict = {'overlap': [self.overlap, self.num_snps], 'matches': matches_dict, 'interpretation':{'case': case, 'text': note}}
         with open(outFile, "w") as out_stats:
             out_stats.write(json.dumps(topHitsDict, sort_keys=True, indent=4))
