@@ -6,6 +6,7 @@ import sys
 import os
 import os.path
 import json
+import re
 from subprocess import Popen, PIPE, check_output
 
 log = logging.getLogger(__name__)
@@ -89,7 +90,7 @@ def makeHDF5s(csvFile, outFile):
 
 def makedb_from_vcf(args):
     _,inType = os.path.splitext(args['inFile'])
-    if inType == '.vcf':
+    if inType == '.vcf' or len(re.compile(".vcf.gz$").findall(os.path.basename(args['inFile']))) > 0 :
         log.info("converting VCF to CSV")
         getCSV(args['inFile'], args['db_id'], args['bcfpath'])
         log.info("converting CSV to hdf5!")
