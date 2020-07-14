@@ -22,7 +22,7 @@ class FollowSNPmatch(object):
                 req_csv = pd.read_csv(csv_snpmatch[req_name], index_col=0)
                 self._instances.append( "snpmatch_" + req_name )
                 ## Below we change the column datatype
-                for ef in ['TopHitAccession', 'NextHit', 'RefinedTopHit']:
+                for ef in ['TopHitAccession', 'NextHit', 'ThirdHit', 'RefinedTopHit']:
                     req_csv[ef] = req_csv[ef].apply(str)
                 setattr(self, "snpmatch_" + req_name, req_csv)
                 setattr(self, "snpmatch_" + req_name + "_fol", os.path.dirname( csv_snpmatch[req_name] ) )
