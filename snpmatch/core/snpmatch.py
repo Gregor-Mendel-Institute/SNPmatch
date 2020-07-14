@@ -97,6 +97,7 @@ class GenotyperOutput(object):
             'num_snps': self.num_snps,
             'dp': self.dp 
         } )
+        output_table = output_table[ ['accs', 'matches', 'ninfo', 'probabilities', 'likelihood', 'lrt', 'num_snps', 'dp'] ]
         if outFile:
             output_table.to_csv( outFile, header = None, sep = "\t", index = None )
         return( output_table )
