@@ -51,6 +51,8 @@ class Genotype(object):
         common_ins_2.load_snp_info(  snpCHR=input_2_chr, snpPOS=input_2_pos, snpGT="", snpWEI=np.nan, DPmean=0 )
         common_ins_2.filter_chr_names()
         common_chr_ids = np.intersect1d(common_ins_1.g_chrs_ids, common_ins_2.g_chrs_ids)
+        ## Sort the chr list based on the db
+        common_chr_ids = common_ins_1.g_chrs_ids[np.where(np.isin(common_ins_1.g_chrs_ids, common_chr_ids))[0]]
         common_idx_1 = np.zeros(0, dtype=int)
         common_idx_2 = np.zeros(0, dtype=int)
         for i in common_chr_ids:
