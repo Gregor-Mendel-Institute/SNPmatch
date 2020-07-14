@@ -74,9 +74,9 @@ class ParseInputs(object):
             log.info("done!")
 
     def load_snp_info(self, snpCHR, snpPOS, snpGT, snpWEI, DPmean):
-        self.chrs = np.array(snpCHR, dtype="string")
+        self.chrs = np.array(snpCHR, dtype="str")
         self.pos = np.array(snpPOS, dtype=int)
-        self.gt = np.array(snpGT, dtype="string")
+        self.gt = np.array(snpGT, dtype="str")
         self.wei = np.array(snpWEI, dtype=float)
         self.dp = DPmean
 
@@ -102,7 +102,7 @@ class ParseInputs(object):
     def read_bed(inFile, logDebug):
         log.info("reading the position file")
         targetSNPs = pd.read_table(inFile, header=None, usecols=[0,1,2])
-        snpCHR = np.array(targetSNPs[0], dtype="string")
+        snpCHR = np.array(targetSNPs[0], dtype="str")
         snpPOS = np.array(targetSNPs[1], dtype=int)
         snpGT = np.array(targetSNPs[2])
         snpBinary = parseGT(snpGT)
@@ -144,7 +144,7 @@ class ParseInputs(object):
             snpWEI[missing_pls,] = self.get_wei_from_GT(snpGT[missing_pls])
         else:
             snpWEI = self.get_wei_from_GT(snpGT)
-        snpCHR = np.array(vcf['variants/CHROM'][snpsREQ], dtype="string")
+        snpCHR = np.array(vcf['variants/CHROM'][snpsREQ], dtype="str")
         if 'calldata/DP' in sorted(vcf.keys()):
             DPmean = np.mean(vcf['calldata/DP'][snpsREQ,0])
         else:
@@ -154,8 +154,22 @@ class ParseInputs(object):
 
     def filter_chr_names(self):
         ## provide genotypedata (pygwas genotype object)
-        self.g_chrs = np.array(pd.Series(self.chrs).str.replace("chr", "", case=False), dtype="string")
-        self.g_chrs_ids = np.unique(self.g_chrs)
+        self.g_chrs = np.array(pd.Series(self.chrs).str.replace("chr", "", case=False), dtype="str")
+        _, idx = np.unique(self.g_chrs, return_index=True)
+        self.g_chrs_ids = self.g_chrs[np.sort(idx)]
+
+    def save_to_bed(self, outFile):
+        # parsers.snp_binary_to_gt( np.array(input_df.iloc[:,2]) )
+        input_df = pd.DataFrame(
+            np.column_stack((
+                self.chrs,
+                self.pos, 
+                self.gt
+            )), 
+            columns = ["chr", 'pos', 'gt']
+        )
+        input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
+
 
 
 def potatoParser(inFile, logDebug, outFile = "parser"):
