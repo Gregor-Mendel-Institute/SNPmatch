@@ -8,7 +8,7 @@ dependencies:
     - python=2.7.16
     - numpy=1.16.4
     - bcftools=1.9
-    - scikit-allel=0.20.3
+    - scikit-allel=1.2.1
     - pip=19.2.2
     - _libgcc_mutex=0.1
     - _r-mutex=1.0.1
