@@ -7,7 +7,7 @@ from . import snp_genotype
 
 log = logging.getLogger(__name__)
 
-def simulateSNPs(g, AccID, numSNPs, outFile, err_rate):
+def simulateSNPs(g, AccID, numSNPs, outFile=None, err_rate=0.001):
     assert type(AccID) is str, "provide Accession ID as a string"
     assert AccID in g.g.accessions, "accession is not present in the matrix!"
     AccToCheck = np.where(g.g.accessions == AccID)[0][0]
@@ -26,9 +26,11 @@ def simulateSNPs(g, AccID, numSNPs, outFile, err_rate):
     num_to_change = int(err_rate * input_df.shape[0])
     input_df.iloc[np.sort(np.random.choice(np.arange(input_df.shape[0]), num_to_change, replace=False)), 2] = np.random.choice(3, num_to_change)
     input_df.iloc[:, 2] = parsers.snp_binary_to_gt( np.array(input_df.iloc[:,2]) )
-    input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
+    if outFile is not None:
+        input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
+    return(input_df)
 
-def simulateSNPs_F1(g, parents, numSNPs, outFile, err_rate, rm_hets = False):
+def simulateSNPs_F1(g, parents, numSNPs, outFile, err_rate, rm_hets = 1):
     indP1 = np.where(g.g_acc.accessions == parents.split("x")[0])[0][0]
     indP2 = np.where(g.g_acc.accessions == parents.split("x")[1])[0][0]
     log.info("loading files!")
@@ -48,10 +50,9 @@ def simulateSNPs_F1(g, parents, numSNPs, outFile, err_rate, rm_hets = False):
     log.info("adding in error rate: %s" %  err_rate)
     num_to_change = int(err_rate * input_df.shape[0])
     input_df.iloc[np.sort(np.random.choice(np.where(input_df['snp'] != 2)[0], num_to_change, replace=False)), 2] = np.random.choice(2, num_to_change)
-    if rm_hets:
-        ## Also change hets randomly to homozygous
-        het_ix = np.where(input_df['snp'] == 2)[0]
-        input_df.iloc[het_ix, 2] = np.random.choice(3, het_ix.shape[0], p=[0.45,0.45,0.1])
+    ## Also change hets randomly to homozygous
+    het_ix = np.where(input_df['snp'] == 2)[0]
+    input_df.iloc[het_ix, 2] = np.random.choice(3, het_ix.shape[0], p=[(1-rm_hets)/2,(1-rm_hets)/2,rm_hets])
     ## Save the file to a bed file
     input_df.iloc[:, 2] = parsers.snp_binary_to_gt( np.array(input_df.iloc[:,2]) )
     input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
@@ -59,7 +60,7 @@ def simulateSNPs_F1(g, parents, numSNPs, outFile, err_rate, rm_hets = False):
 def potatoSimulate(args):
     g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'] )
     if args['simF1']:
-        simulateSNPs_F1(g, args['AccID'], args['numSNPs'], args['outFile'], args['err_rate'])
+        simulateSNPs_F1(g, args['AccID'], args['numSNPs'], args['outFile'], args['err_rate'], args['rm_het'])
     else:
         simulateSNPs(g, args['AccID'], args['numSNPs'], args['outFile'], args['err_rate'])
     log.info("finished!")
