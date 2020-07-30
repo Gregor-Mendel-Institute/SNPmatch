@@ -30,7 +30,7 @@ def simulateSNPs(g, AccID, numSNPs, outFile=None, err_rate=0.001):
         input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
     return(input_df)
 
-def simulateSNPs_F1(g, parents, numSNPs, outFile, err_rate, rm_hets = 1):
+def simulateSNPs_F1(g, parents, numSNPs, outFile = None, err_rate, rm_hets = 1):
     indP1 = np.where(g.g_acc.accessions == parents.split("x")[0])[0][0]
     indP2 = np.where(g.g_acc.accessions == parents.split("x")[1])[0][0]
     log.info("loading files!")
@@ -55,7 +55,9 @@ def simulateSNPs_F1(g, parents, numSNPs, outFile, err_rate, rm_hets = 1):
     input_df.iloc[het_ix, 2] = np.random.choice(3, het_ix.shape[0], p=[(1-rm_hets)/2,(1-rm_hets)/2,rm_hets])
     ## Save the file to a bed file
     input_df.iloc[:, 2] = parsers.snp_binary_to_gt( np.array(input_df.iloc[:,2]) )
-    input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
+    if outFile is not None:
+        input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
+    return(input_df)
 
 def potatoSimulate(args):
     g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'] )
