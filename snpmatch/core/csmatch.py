@@ -82,24 +82,9 @@ class CrossIdentifier(object):
             perchrtarSNPpos = self.inputs.pos[e_s[2]]
             matchedAccInd = np.array(e_g[2], dtype=int)[np.where(np.in1d(g_bin_pos, perchrtarSNPpos))[0]]
             matchedTarInd = np.array(e_s[2], dtype=int)[np.where(np.in1d(perchrtarSNPpos, g_bin_pos))[0]]
-            matchedTarWei = self.inputs.wei[matchedTarInd,]
-            TarGTs0 = np.zeros(len(matchedTarInd), dtype="int8")
-            TarGTs1 = np.ones(len(matchedTarInd), dtype="int8") + 1
-            TarGTs2 = np.ones(len(matchedTarInd), dtype="int8")
             NumMatSNPs = NumMatSNPs + len(matchedAccInd)
-            ScoreList = np.zeros(num_lines, dtype="uint32")
-            NumInfoSites = np.zeros(num_lines, dtype="uint32")
-            for j in range(0, len(matchedAccInd), chunk_size):
-                t1001SNPs = self.g.g.snps[matchedAccInd[j:j+chunk_size],:]
-                samSNPs0 = np.reshape(np.repeat(TarGTs0[j:j+chunk_size], num_lines), (len(TarGTs0[j:j+chunk_size]),num_lines))
-                samSNPs1 = np.reshape(np.repeat(TarGTs1[j:j+chunk_size], num_lines), (len(TarGTs1[j:j+chunk_size]),num_lines))
-                samSNPs2 = np.reshape(np.repeat(TarGTs2[j:j+chunk_size], num_lines), (len(TarGTs2[j:j+chunk_size]),num_lines))
-                tempScore0 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs0, dtype=int).T, matchedTarWei[j:j+chunk_size,0]).T, axis=0)
-                tempScore1 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs1, dtype=int).T, matchedTarWei[j:j+chunk_size,1]).T, axis=0)
-                tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[j:j+chunk_size,2]).T, axis=0)
-                ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
-                if(len(TarGTs0[j:j+chunk_size]) >= 1):
-                    NumInfoSites = NumInfoSites + len(TarGTs0[j:j+chunk_size]) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0)
+            ScoreList, NumInfoSites = snpmatch.matchGTsAccs( self.inputs.wei[matchedTarInd,], self.g.g.snps[matchedAccInd,:] )
+            import ipdb; ipdb.set_trace()
             TotScoreList = TotScoreList + ScoreList
             TotNumInfoSites = TotNumInfoSites + NumInfoSites
             TotMatchedTarInds = np.append(TotMatchedTarInds, matchedTarInd)

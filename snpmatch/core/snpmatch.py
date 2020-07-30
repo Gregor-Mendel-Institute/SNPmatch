@@ -53,6 +53,21 @@ def test_identity(x, n, error_rate = 0.0005, pthres = 0.05):
 
 np_test_identity = np.vectorize(test_identity, excluded=["pthres", "error_rate"])
 
+def matchGTsAccs(sampleWei, t1001snps):
+    assert sampleWei.shape[0] == t1001snps.shape[0], "please provide same number of positions for both sample and db"
+    assert sampleWei.shape[1] == 3, "SNP weights should be a np.array with  shape == n,3"
+    ## Initilizing
+    num_lines = t1001snps.shape[1]
+    TarGTs0 = np.zeros(t1001snps.shape, dtype="int8") ## Homo -- ref
+    TarGTs1 = np.ones(t1001snps.shape, dtype="int8") + 1  ## Hets 
+    TarGTs2 = np.ones(t1001snps.shape, dtype="int8")  ## Homo -- alt
+    score = np.zeros( num_lines )
+    score = score + np.multiply(np.array(numpy.ma.masked_less(t1001snps, 0) == TarGTs0, dtype=int).T, sampleWei[:,0]).sum(axis = 1)
+    score = score + np.multiply(np.array(numpy.ma.masked_less(t1001snps, 0) == TarGTs1, dtype=int).T, sampleWei[:,1]).sum(axis = 1)
+    score = score + np.multiply(np.array(numpy.ma.masked_less(t1001snps, 0) == TarGTs2, dtype=int).T, sampleWei[:,2]).sum(axis = 1)
+    ninfo = t1001snps.shape[0] - np.sum(numpy.ma.masked_less(t1001snps, 0).mask.astype(int ), axis = 0)
+    return((score, ninfo))
+
 class GenotyperOutput(object):
     ## class object for main SNPmatch output
 
@@ -183,18 +198,8 @@ class Genotyper(object):
             matchedAccInd = self.commonSNPs[0][j:j+self.chunk_size]
             matchedTarInd = self.commonSNPs[1][j:j+self.chunk_size]
             matchedTarWei = self.inputs.wei[matchedTarInd,]
-            TarGTs0 = np.zeros(len(matchedTarInd), dtype="int8")
-            TarGTs1 = np.ones(len(matchedTarInd), dtype="int8") + 1
-            TarGTs2 = np.ones(len(matchedTarInd), dtype="int8")
             t1001SNPs = self.g.g.snps[matchedAccInd,:]
-            samSNPs0 = np.reshape(np.repeat(TarGTs0, self.num_lines), (len(TarGTs0),self.num_lines))
-            samSNPs1 = np.reshape(np.repeat(TarGTs1, self.num_lines), (len(TarGTs1),self.num_lines))
-            samSNPs2 = np.reshape(np.repeat(TarGTs2, self.num_lines), (len(TarGTs2),self.num_lines))
-            tempScore0 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs0, dtype=int).T, matchedTarWei[:,0]).T, axis=0)
-            tempScore1 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs1, dtype=int).T, matchedTarWei[:,1]).T, axis=0)
-            tempScore2 = np.sum(np.multiply(np.array(t1001SNPs == samSNPs2, dtype=int).T, matchedTarWei[:,2]).T, axis=0)
-            ScoreList = ScoreList + tempScore0 + tempScore1 + tempScore2
-            NumInfoSites = NumInfoSites + len(TarGTs0) - np.sum(numpy.ma.masked_less(t1001SNPs, 0).mask.astype(int), axis = 0) # Number of informative sites
+            ScoreList, NumInfoSites = matchGTsAccs( matchedTarWei, t1001SNPs )
             if j % (self.chunk_size * 50) == 0:
                 log.info("Done analysing %s positions", j+self.chunk_size)
         overlap = get_fraction(NumMatSNPs, len(self.inputs.pos))
