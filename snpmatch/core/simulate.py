@@ -30,7 +30,7 @@ def simulateSNPs(g, AccID, numSNPs, outFile=None, err_rate=0.001):
         input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
     return(input_df)
 
-def simulateSNPs_F1(g, parents, numSNPs, outFile = None, err_rate, rm_hets = 1):
+def simulateSNPs_F1(g, parents, numSNPs, outFile, err_rate, rm_hets = 1):
     indP1 = np.where(g.g_acc.accessions == parents.split("x")[0])[0][0]
     indP2 = np.where(g.g_acc.accessions == parents.split("x")[1])[0][0]
     log.info("loading files!")
