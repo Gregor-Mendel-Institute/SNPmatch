@@ -101,7 +101,7 @@ class ParseInputs(object):
     @staticmethod
     def read_bed(inFile, logDebug):
         log.info("reading the position file")
-        targetSNPs = pd.read_table(inFile, header=None, usecols=[0,1,2])
+        targetSNPs = pd.read_csv(inFile, header=None, sep = None, engine = 'python', usecols=[0,1,2])
         snpCHR = np.array(targetSNPs[0], dtype="str")
         snpPOS = np.array(targetSNPs[1], dtype=int)
         snpGT = np.array(targetSNPs[2])
