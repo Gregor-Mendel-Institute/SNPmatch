@@ -65,7 +65,7 @@ def matchGTsAccs(sampleWei, t1001snps):
     score = score + np.multiply(np.array(numpy.ma.masked_less(t1001snps, 0) == TarGTs0, dtype=int).T, sampleWei[:,0]).sum(axis = 1)
     score = score + np.multiply(np.array(numpy.ma.masked_less(t1001snps, 0) == TarGTs1, dtype=int).T, sampleWei[:,1]).sum(axis = 1)
     score = score + np.multiply(np.array(numpy.ma.masked_less(t1001snps, 0) == TarGTs2, dtype=int).T, sampleWei[:,2]).sum(axis = 1)
-    ninfo = t1001snps.shape[0] - np.sum(numpy.ma.masked_less(t1001snps, 0).mask.astype(int ), axis = 0)
+    ninfo = np.repeat(t1001snps.shape[0], num_lines) - np.sum(numpy.ma.masked_less(t1001snps, 0).mask.astype(int ), axis = 0)
     return((score, ninfo))
 
 class GenotyperOutput(object):

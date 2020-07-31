@@ -83,15 +83,15 @@ class CrossIdentifier(object):
             matchedAccInd = np.array(e_g[2], dtype=int)[np.where(np.in1d(g_bin_pos, perchrtarSNPpos))[0]]
             matchedTarInd = np.array(e_s[2], dtype=int)[np.where(np.in1d(perchrtarSNPpos, g_bin_pos))[0]]
             NumMatSNPs = NumMatSNPs + len(matchedAccInd)
-            ScoreList, NumInfoSites = snpmatch.matchGTsAccs( self.inputs.wei[matchedTarInd,], self.g.g.snps[matchedAccInd,:] )
-            import ipdb; ipdb.set_trace()
-            TotScoreList = TotScoreList + ScoreList
-            TotNumInfoSites = TotNumInfoSites + NumInfoSites
-            TotMatchedTarInds = np.append(TotMatchedTarInds, matchedTarInd)
-            self.windows_data = self.windows_data.append( self.get_window_data(bin_inds, self.g.accessions[mask_acc_to_print], ScoreList[mask_acc_to_print], NumInfoSites[mask_acc_to_print], self.error_rate), ignore_index=True )
-            winds_chrs = np.append( winds_chrs, self.genome.chrs_ids[e_g[0]] )
+            if len(matchedAccInd) > 0:
+                ScoreList, NumInfoSites = snpmatch.matchGTsAccs( self.inputs.wei[matchedTarInd,], self.g.g.snps[matchedAccInd,:] )
+                TotScoreList = TotScoreList + ScoreList
+                TotNumInfoSites = TotNumInfoSites + NumInfoSites
+                TotMatchedTarInds = np.append(TotMatchedTarInds, matchedTarInd)
+                self.windows_data = self.windows_data.append( self.get_window_data(bin_inds, self.g.accessions[mask_acc_to_print], ScoreList[mask_acc_to_print], NumInfoSites[mask_acc_to_print], self.error_rate), ignore_index=True )
             if bin_inds % 50 == 0:
                 log.info("Done analysing %s positions", NumMatSNPs)
+            winds_chrs = np.append( winds_chrs, self.genome.chrs_ids[e_g[0]] )
             bin_inds += 1
         overlap = snpmatch.get_fraction(NumMatSNPs, len(self.inputs.pos))
         result = snpmatch.GenotyperOutput(self.g.accessions[mask_acc_to_print], TotScoreList[mask_acc_to_print], TotNumInfoSites[mask_acc_to_print], overlap, NumMatSNPs, self.inputs.dp)

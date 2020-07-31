@@ -104,7 +104,7 @@ def get_options(program_license,program_version_message):
   simparser.add_argument("-n", "--number_of_snps", dest="numSNPs", help= "number of SNPs to draw in random to genotype the sample", type=int)
   simparser.add_argument("-p", "--error_rate", dest="err_rate", help= "error rate while matching the SNPs, error rate of 0 gives perfect match to the accession", default = 0.001, type=float)
   simparser.add_argument("--f1", action="store_true", dest="simF1", default=False, help="Simulate SNPs for an F1, give parents as 1061x1062 in argument '-a'")
-  simparser.add_argument("--het_frac", default = 1, type=float, dest="het_frac", help="Mainly for simulating F1s. Replace possible heterozygous SNPs with random homo ref and alt based on given probability you find a het. For example., --rm_het is 0.1, then only 10 percent of segregating sites will be het and 45 percent of homo alt and ref. ")
+  simparser.add_argument("--het_frac", default = 1, type=float, dest="rm_het", help="Mainly for simulating F1s. Replace possible heterozygous SNPs with random homo ref and alt based on given probability you find a het. For example., --rm_het is 0.1, then only 10 percent of segregating sites will be het and 45 percent of homo alt and ref. ")
   simparser.add_argument("-o", "--output", dest="outFile", help="Output file with scores")
   simparser.add_argument("-v", "--verbose", action="store_true", dest="logDebug", default=False, help="Show verbose debugging output")
   simparser.set_defaults(func=simulate_snps)
