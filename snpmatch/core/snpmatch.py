@@ -199,7 +199,9 @@ class Genotyper(object):
             matchedTarInd = self.commonSNPs[1][j:j+self.chunk_size]
             matchedTarWei = self.inputs.wei[matchedTarInd,]
             t1001SNPs = self.g.g.snps[matchedAccInd,:]
-            ScoreList, NumInfoSites = matchGTsAccs( matchedTarWei, t1001SNPs )
+            t_s, t_n = matchGTsAccs( matchedTarWei, t1001SNPs )
+            ScoreList = ScoreList + t_s
+            NumInfoSites = NumInfoSites + t_n
             if j % (self.chunk_size * 50) == 0:
                 log.info("Done analysing %s positions", j+self.chunk_size)
         overlap = get_fraction(NumMatSNPs, len(self.inputs.pos))
