@@ -53,10 +53,12 @@ def test_identity(x, n, error_rate = 0.0005, pthres = 0.05):
 
 np_test_identity = np.vectorize(test_identity, excluded=["pthres", "error_rate"])
 
-def matchGTsAccs(sampleWei, t1001snps):
+def matchGTsAccs(sampleWei, t1001snps, skip_hets_db = False):
     assert sampleWei.shape[0] == t1001snps.shape[0], "please provide same number of positions for both sample and db"
     assert sampleWei.shape[1] == 3, "SNP weights should be a np.array with  shape == n,3"
     ## Initilizing
+    if skip_hets_db: 
+        t1001snps[t1001snps == 2] = -1
     num_lines = t1001snps.shape[1]
     TarGTs0 = np.zeros(t1001snps.shape, dtype="int8") ## Homo -- ref
     TarGTs1 = np.ones(t1001snps.shape, dtype="int8") + 1  ## Hets 
@@ -150,7 +152,7 @@ class GenotyperOutput(object):
 class Genotyper(object):
     ## class object for main SNPmatch
 
-    def __init__(self, inputs, g, outFile, run_genotyper = True, chunk_size = 1000):
+    def __init__(self, inputs, g, outFile, run_genotyper = True, skip_db_hets = False, chunk_size = 1000):
         assert type(g) is snp_genotype.Genotype, "provide a snp_genotype.Genotype class for genotypes"
         inputs.filter_chr_names()
         self.chunk_size = chunk_size
@@ -158,6 +160,7 @@ class Genotyper(object):
         self.g = g
         self.num_lines = len(self.g.g.accessions)
         self.outFile = outFile
+        self._skip_db_hets = skip_db_hets
         if run_genotyper:
             self.result = self.genotyper()
             self.write_genotyper_output( self.result )
@@ -199,7 +202,7 @@ class Genotyper(object):
             matchedTarInd = self.commonSNPs[1][j:j+self.chunk_size]
             matchedTarWei = self.inputs.wei[matchedTarInd,]
             t1001SNPs = self.g.g.snps[matchedAccInd,:]
-            t_s, t_n = matchGTsAccs( matchedTarWei, t1001SNPs )
+            t_s, t_n = matchGTsAccs( matchedTarWei, t1001SNPs, self._skip_db_hets )
             ScoreList = ScoreList + t_s
             NumInfoSites = NumInfoSites + t_n
             if j % (self.chunk_size * 50) == 0:
@@ -239,11 +242,11 @@ def potatoGenotyper(args):
     log.info("done!")
     log.info("running genotyper!")
     if args['refine']:
-        genotyper = Genotyper(inputs, g, args['outFile'], run_genotyper=False)
+        genotyper = Genotyper(inputs, g, args['outFile'], run_genotyper=False,  skip_db_hets = args['skip_db_hets'])
         genotyper.filter_tophits()
         log.info("finished!")
         return(None)
-    genotyper = Genotyper(inputs, g, args['outFile'], run_genotyper=True)
+    genotyper = Genotyper(inputs, g, args['outFile'], run_genotyper=True,  skip_db_hets = args['skip_db_hets'])
     log.info("finished!")
 
 def pairwiseScore(inFile_1, inFile_2, logDebug, outFile = None, hdf5File = None):

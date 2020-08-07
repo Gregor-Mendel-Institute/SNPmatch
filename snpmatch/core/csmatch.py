@@ -20,7 +20,7 @@ np_get_fraction = np.vectorize(snpmatch.get_fraction)
 class CrossIdentifier(object):
     ## class object for main CSMATCH
 
-    def __init__(self, inputs, g, genome_id, binLen, output_id = "cross.identifier", run_identifier = True, identity_error_rate = 0.02):
+    def __init__(self, inputs, g, genome_id, binLen, output_id = "cross.identifier", run_identifier = True, identity_error_rate = 0.02, skip_db_hets = False):
         self.g = g
         assert type(inputs) is parsers.ParseInputs, "provide a parsers class"
         inputs.filter_chr_names()
@@ -29,6 +29,7 @@ class CrossIdentifier(object):
         self.binLen = binLen
         self.output_id = output_id
         self.error_rate = identity_error_rate
+        self._skip_db_hets = skip_db_hets
         if run_identifier:
             self.cross_identifier()
 
@@ -84,7 +85,7 @@ class CrossIdentifier(object):
             matchedTarInd = np.array(e_s[2], dtype=int)[np.where(np.in1d(perchrtarSNPpos, g_bin_pos))[0]]
             NumMatSNPs = NumMatSNPs + len(matchedAccInd)
             if len(matchedAccInd) > 0:
-                ScoreList, NumInfoSites = snpmatch.matchGTsAccs( self.inputs.wei[matchedTarInd,], self.g.g.snps[matchedAccInd,:] )
+                ScoreList, NumInfoSites = snpmatch.matchGTsAccs( self.inputs.wei[matchedTarInd,], self.g.g.snps[matchedAccInd,:], self._skip_db_hets )
                 TotScoreList = TotScoreList + ScoreList
                 TotNumInfoSites = TotNumInfoSites + NumInfoSites
                 TotMatchedTarInds = np.append(TotMatchedTarInds, matchedTarInd)
@@ -199,5 +200,5 @@ def potatoCrossIdentifier(args):
     g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'])
     log.info("done!")
     log.info("running cross identifier!")
-    ci = CrossIdentifier(inputs, g, args['genome'], args['binLen'], args['outFile'], run_identifier = True)
+    ci = CrossIdentifier(inputs, g, args['genome'], args['binLen'], args['outFile'], run_identifier = True, skip_db_hets = args['skip_db_hets'])
     log.info("finished!")
