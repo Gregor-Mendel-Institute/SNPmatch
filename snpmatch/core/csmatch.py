@@ -54,7 +54,7 @@ class CrossIdentifier(object):
         t_window["acc"] = t_window["acc"].apply(str)
         t_window["snps_match"] = t_window["snps_match"].apply(float).apply(int)
         t_window["snps_info"] = t_window["snps_info"].apply(float).apply(int)
-        t_window["identical"] = t_window["identical"].apply(float).apply(int)
+        t_window["identical"] = t_window["identical"].apply(float)
         if len(NumAmb) >= 1 and len(NumAmb) < num_lines:
             t_window = t_window.iloc[NumAmb,:]
         else:

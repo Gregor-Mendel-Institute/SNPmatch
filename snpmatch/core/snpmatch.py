@@ -44,14 +44,16 @@ def likeliTest(n, y):
     elif y == 0:
         return(np.nan)
 
-def test_identity(x, n, error_rate = 0.0005, pthres = 0.05):
+def test_identity(x, n, error_rate = 0.0005, pthres = 0.05, n_thres = 20):
+    if n <= n_thres:
+        return(np.nan)
     st = stats.binom_test(int(n - x), n, p = float(error_rate), alternative='greater')
     if st <= pthres:
         return(float(0))
     else:
         return(float(1))
 
-np_test_identity = np.vectorize(test_identity, excluded=["pthres", "error_rate"])
+np_test_identity = np.vectorize(test_identity, excluded=["pthres", "error_rate", "n_thres"])
 
 def matchGTsAccs(sampleWei, t1001snps, skip_hets_db = False):
     assert sampleWei.shape[0] == t1001snps.shape[0], "please provide same number of positions for both sample and db"
