@@ -19,16 +19,16 @@ class FollowSNPmatch(object):
         self._instances = []
         if csv_snpmatch != {}:
             for req_name in csv_snpmatch.keys():
-                req_csv = pd.read_csv(csv_snpmatch[req_name], index_col=0)
+                req_csv = pd.read_csv(csv_snpmatch[req_name], sep = None, engine = 'python', index_col=0)
                 self._instances.append( "snpmatch_" + req_name )
                 ## Below we change the column datatype
-                for ef in ['TopHitAccession', 'NextHit', 'ThirdHit', 'RefinedTopHit']:
+                for ef in req_csv.columns.intersection( ['TopHitAccession', 'NextHit', 'ThirdHit', 'RefinedTopHit'] ):
                     req_csv[ef] = req_csv[ef].apply(str)
                 setattr(self, "snpmatch_" + req_name, req_csv)
                 setattr(self, "snpmatch_" + req_name + "_fol", os.path.dirname( csv_snpmatch[req_name] ) )
         if csv_csmatch != {}:
             for req_name in csv_csmatch.keys():
-                req_csv = pd.read_csv(csv_csmatch[req_name], index_col=0)
+                req_csv = pd.read_csv(csv_csmatch[req_name], sep = None, engine = 'python', index_col=0)
                 self._instances.append( "csmatch_" + req_name )
                 ## Below we change the column datatype
                 for ef in ['TopHit', 'NextHit', 'ObservedParent1','ObservedParent2']:
