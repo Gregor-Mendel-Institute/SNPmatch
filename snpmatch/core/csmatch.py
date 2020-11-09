@@ -147,7 +147,7 @@ class CrossIdentifier(object):
             self.cross_identfier_json['identical_windows'] = [ snpmatch.get_fraction( identical_wind.shape[0], num_winds ), num_winds ]
             homo_wind = np.intersect1d(self.windows_data['window_index'][np.where(self.windows_data['num_amb'] < 20 )[0]], identical_wind)
             homo_acc = np.unique(self.windows_data.iloc[:,0][np.where(np.in1d(self.windows_data.iloc[:,7], homo_wind))[0]],return_counts=True)
-            matches_dict = [(homo_acc[0][i], homo_acc[1][i]) for i in np.argsort(-homo_acc[1])]
+            matches_dict = [(homo_acc[0][i], int(homo_acc[1][i])) for i in np.argsort(-homo_acc[1])]
             self.cross_identfier_json['matches'] = matches_dict
             topMatch = np.argsort(self.result.likelis)[0]  ## top F1 match sorted based on likelihood
             if topMatch in np.where(~np.in1d(self.result.accs, self.g.accessions))[0]:
@@ -161,7 +161,7 @@ class CrossIdentifier(object):
                 ## Get exactly the homozygous windows with one count
                 clean = np.unique(self.windows_data.iloc[:,0][np.where(self.windows_data.iloc[:,6] == 1)[0]], return_counts = True)
                 if len(clean[0]) > 0:  ## Check if there are atlease one homozygous window
-                    parents = clean[0][np.argsort(-clean[1])[0:2]].astype("string")
+                    parents = clean[0][np.argsort(-clean[1])[0:2]].astype("str")
                     parents_counts = clean[1][np.argsort(-clean[1])[0:2]].astype("int")
                     xdict = np.array(np.unique(self.windows_data.iloc[:,7]), dtype="int")
                     ydict = np.repeat("NA", len(xdict)).astype("a25")
@@ -169,7 +169,7 @@ class CrossIdentifier(object):
                         self.cross_identfier_json['interpretation']['text'] = "Sample may be a F2! but only one parent found!"
                         self.cross_identfier_json['interpretation']['case'] = 6
                         self.cross_identfier_json['parents'] = {'mother': [parents[0], parents_counts[0]], 'father': ["NA", "NA"]}
-                        par1_ind = self.windows_data.iloc[:,7][np.where((self.windows_data.iloc[:,0].astype("string") == parents[0]) & np.in1d(self.windows_data.iloc[:,7], homo_wind))[0]]
+                        par1_ind = self.windows_data.iloc[:,7][np.where((self.windows_data.iloc[:,0].astype("str") == parents[0]) & np.in1d(self.windows_data.iloc[:,7], homo_wind))[0]]
                         ydict[np.where(np.in1d(xdict,par1_ind))[0]] = parents[0]
                         chr_bins = None
                     else:
@@ -178,8 +178,8 @@ class CrossIdentifier(object):
                         self.cross_identfier_json['parents'] = {'mother': [parents[0], parents_counts[0]], 'father': [parents[1], parents_counts[1]]}
                         NumChrs = np.unique(self.result.winds_chrs, return_counts=True)
                         chr_bins = dict(( NumChrs[0][i], NumChrs[1][i]) for i in range(len(NumChrs[0])))
-                        par1_ind = np.array(self.windows_data.iloc[:,7][np.where((self.windows_data.iloc[:,0].astype("string") == parents[0]) & np.in1d(self.windows_data.iloc[:,7], homo_wind))[0]])
-                        par2_ind = np.array(self.windows_data.iloc[:,7][np.where((self.windows_data.iloc[:,0].astype("string") == parents[1]) & np.in1d(self.windows_data.iloc[:,7], homo_wind))[0]])
+                        par1_ind = np.array(self.windows_data.iloc[:,7][np.where((self.windows_data.iloc[:,0].astype("str") == parents[0]) & np.in1d(self.windows_data.iloc[:,7], homo_wind))[0]])
+                        par2_ind = np.array(self.windows_data.iloc[:,7][np.where((self.windows_data.iloc[:,0].astype("str") == parents[1]) & np.in1d(self.windows_data.iloc[:,7], homo_wind))[0]])
                         ydict[np.where(np.in1d(xdict,par1_ind))[0]] = parents[0]
                         ydict[np.where(np.in1d(xdict,par2_ind))[0]] = parents[1]
                     xdict = xdict.tolist()
