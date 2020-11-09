@@ -125,9 +125,9 @@ class ParseInputs(object):
         if logDebug:
             vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
         else:
-            import StringIO
+            import io
             import sys
-            sys.stderr = StringIO.StringIO()
+            sys.stderr = io.StringIO()
             vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
             sys.stderr = sys.__stderr__
         try:
