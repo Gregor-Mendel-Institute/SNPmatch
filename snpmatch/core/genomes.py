@@ -60,7 +60,7 @@ class Genome(object):
         else:
             log.warn("Average recombination rates were missing in genome file. Add rates for each chromosome as an array in genome json file under 'recomb_rates' key. Using default rate of 3")
             mean_recomb_rates = np.repeat(3, len(genome.chrs_ids))
-        assert isinstance(snp_position, basestring), "expected a string!"
+        assert isinstance(snp_position, str), "expected a string!"
         assert len(snp_position.split(",")) >= 2, "input should be 'chr1,1000' or 'chr1,1000,2000'"
         if len(snp_position.split(",")) == 2:
             snp_position = [snp_position.split(",")[0], int(snp_position.split(",")[1])]
