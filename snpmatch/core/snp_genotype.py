@@ -181,13 +181,19 @@ class Genotype(object):
             assert len(req_bed) == 3, "provide a bed region, ex. Chr1,1,1000"
             req_bed[1] = int(req_bed[1])
             req_bed[2] = int(req_bed[2])
-        g_chr_pos = self.g.chr_regions[ self.get_chr_ind( req_bed[0] ) ]
-        snp_ix = np.where(
-            (self.g.positions[g_chr_pos[0]:g_chr_pos[1]] <= req_bed[2]) &
-            (self.g.positions[g_chr_pos[0]:g_chr_pos[1]] >= req_bed[1])
-        )[0] + g_chr_pos[0]
-        return(snp_ix)
+        g_pos = self.g.positions[g_chr_pos[0]:g_chr_pos[1]]
+        snp_start_ix = np.searchsorted(g_pos, req_bed[1]) + g_chr_pos[0]
+        snp_end_ix = np.searchsorted(g_pos, req_bed[2]) + g_chr_pos[0]
+        return(np.arange(snp_start_ix, snp_end_ix))
 
+    def genotypes_for_scikit(self, accs_ix, filter_pos_ix):
+        t_array = np.zeros( (len(filter_pos_ix), len(accs_ix), 2), dtype = 'int8' )
+        # if filter_pos_ix = None:
+            # filter_pos_ix = np.array()
+        t_snps = self.g.snps[filter_pos_ix,:][:,accs_ix]
+        t_array[t_snps == 1] = np.array([1, 1])
+        t_array[t_snps == 2] = np.array([0, 1])
+        return( t_array )
 
 
 def segregting_snps(t):
@@ -209,6 +215,12 @@ def _polarize_snps(snps, polarize_geno=1, genotypes=[0, 1]):
     return(t_s)
 
 def af_snps_np_array(snps, no_accs_missing_info, polarize_geno=1):
+    """
+    A function to calculate allel-frequency given 2d array for SNPs
+    input: 
+        snps == 2d array for SNPs
+        no_accs_missing_info == number of accessions with missing info?
+    """
     maf_snps = np.zeros(0, dtype="float")
     for t_ix in range(0, snps.shape[0], chunk_size):
         t_s =  snps[t_ix:t_ix+chunk_size,:]
