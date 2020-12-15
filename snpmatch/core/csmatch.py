@@ -114,21 +114,14 @@ class CrossIdentifier(object):
         TopHitAccs = np.argsort(-snpmatch_result.probabilies)[0:10]
         commonSNPs = self.g.get_positions_idxs( self.inputs.chrs, self.inputs.pos )
         for (i, j) in itertools.combinations(TopHitAccs, 2):
-            p1 = self.g.g_acc.snps[:,i]
-            p2 = self.g.g_acc.snps[:,j]
-            score = 0
-            numinfo = 0
-            for ind in range(0, len(commonSNPs[0]), chunk_size):
-                matchedAccInd = commonSNPs[0][ind:ind+chunk_size]
-                matchedTarInd = commonSNPs[1][ind:ind+chunk_size]
-                gtp1 = p1[matchedAccInd]
-                gtp2 = p2[matchedAccInd]
-                matchedTarWEI = self.inputs.wei[matchedTarInd,]
-                homalt = np.where((gtp1 == 1) & (gtp2 == 1))[0]
-                homref = np.where((gtp1 == 0) & (gtp2 == 0))[0]
-                het = np.where((gtp1 != -1) & (gtp2 != -1) & (gtp1 != gtp2))[0]
-                score = score + np.sum(matchedTarWEI[homalt, 2]) + np.sum(matchedTarWEI[homref, 0]) + np.sum(matchedTarWEI[het, 1])
-                numinfo = numinfo + len(homalt) + len(homref) + len(het)
+            gtp1 = self.g.g_acc.snps[:,i][commonSNPs[0]]
+            gtp2 = self.g.g_acc.snps[:,j][commonSNPs[0]]
+            matchedTarWEI = self.inputs.wei[commonSNPs[1],]
+            homalt = np.where((gtp1 == 1) & (gtp2 == 1))[0]
+            homref = np.where((gtp1 == 0) & (gtp2 == 0))[0]
+            het = np.where((gtp1 != -1) & (gtp2 != -1) & (gtp1 != gtp2))[0]
+            score = np.sum(matchedTarWEI[homalt, 2]) + np.sum(matchedTarWEI[homref, 0]) + np.sum(matchedTarWEI[het, 1])
+            numinfo = len(homalt) + len(homref) + len(het)
             snpmatch_result.scores = np.append(snpmatch_result.scores, score)
             snpmatch_result.ninfo = np.append(snpmatch_result.ninfo, numinfo)
             snpmatch_result.accs = np.append( snpmatch_result.accs, self.g.accessions[i] + "x" + self.g.accessions[j] )
