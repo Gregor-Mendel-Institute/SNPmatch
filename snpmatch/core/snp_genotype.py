@@ -1,4 +1,5 @@
 import numpy as np
+import scipy as sp
 from pygwas.core import genotype
 import pandas as pd
 import logging
@@ -222,6 +223,40 @@ class Genotype(object):
         t_array[t_snps == 2] = np.array([0, 1])
         return( t_array )
 
+    def kinship_given_snps(self, filter_acc_ix = None, filter_snp_ix = None):
+        """
+        Function to calculate the kinship between all the pairs
+        input:
+        filter_acc_ix:: list of accessions for which kinship needs to be calculated
+        filter_snp_ix:: only consider these SNP positions
+        """
+        if filter_acc_ix is None:
+            num_lines = self.accessions.shape[0]
+        else:
+            num_lines = np.array(filter_acc_ix).shape[0]
+        if filter_snp_ix is None:
+            num_snps = self.g.snps.shape[0]
+            filter_snp_ix = np.arange( num_snps )
+        else:
+            num_snps = filter_snp_ix.shape[0]
+        filter_snp_ix = np.arange(num_snps)
+        # t_kin = calc_kinship_mat( self.g.snps[:] )
+        k_mat = sp.zeros((num_lines, num_lines), dtype="uint32")
+        total_info_snps = sp.zeros((num_lines, num_lines), dtype="uint32")
+        log.info('kinship calculation')
+        chunk_i = 0
+        for t_snp_ix in range(0, num_snps, chunk_size):
+            chunk_i += 1
+            t_snp_end = min(num_snps, t_snp_ix+chunk_size)
+            t_snp = self.g.snps[filter_snp_ix[t_snp_ix:t_snp_end],:][:,filter_acc_ix]
+            t_k_mat, t_num_snps = calc_kinship_mat(t_snp, return_counts=True)
+            k_mat = k_mat + t_k_mat
+            total_info_snps = total_info_snps + t_num_snps
+            if chunk_i % 100 == 0:
+                log.info("Progress: %s chunks", chunk_i)
+            #kin_mat = k_mat / (2 * num_snps) + 0.5
+        kin_mat = np.divide(k_mat, total_info_snps)
+        return(kin_mat)
 
 def segregting_snps(t):
     t[t < 0] = np.nan
@@ -284,3 +319,24 @@ def snpmat_character_to_biallellic(snpmat, polarize = True):
     if polarize:
         return(_polarize_snps(snpmat_num, polarize_geno=1, genotypes=[0, 1]))
     return(np.array(snpmat_num))
+
+def calc_kinship_mat(snp, return_counts = False, snp_dtype="int8"):
+    """
+    Calculate kinship given a SNP matrix
+    only taking values 0, 1 and -1
+    """
+    snps_array = sp.array(snp)
+    snps_array = snps_array.T
+    info_array = sp.mat(np.copy(snps_array).astype(float))
+    info_array[info_array >= 0] = 1
+    info_array[info_array < 0] = 0
+    num_snps = info_array * info_array.T
+    snps_array = snps_array.astype(float)
+    snps_array[snps_array > 1] = 0.5
+    snps_array[snps_array < 0] = 0.5
+    sm = sp.mat(snps_array * 2.0 - 1.0)
+    k_mat = sm * sm.T
+    if return_counts:
+        return k_mat, num_snps
+    else:
+        return np.divide(k_mat, num_snps)
