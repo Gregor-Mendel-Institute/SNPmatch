@@ -93,7 +93,7 @@ class ParseInputs(object):
             case = 1
         snpst = np.unique(self.chrs, return_counts=True)
         snpdict = dict(('%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
-        statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": self.dp}
+        statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": np.nanmean(self.dp)}
         statdict['percent_heterozygosity'] = snpmatch.getHeterozygosity(self.gt)
         with open(outFile , "w") as out_stats:
             out_stats.write(json.dumps(statdict))
@@ -146,11 +146,13 @@ class ParseInputs(object):
             snpWEI = self.get_wei_from_GT(snpGT)
         snpCHR = np.array(vcf['variants/CHROM'][snpsREQ], dtype="str")
         if 'calldata/DP' in sorted(vcf.keys()):
-            DPmean = np.mean(vcf['calldata/DP'][snpsREQ,0])
+            snpDP = vcf['calldata/DP'][snpsREQ,0]
+        elif 'variants/DP' in sorted(vcf.keys()):
+            snpDP = vcf['variants/DP'][snpsREQ]
         else:
-            DPmean = "NA"
+            snpDP = np.repeat("NA", snpsREQ.shape[0])
         snpPOS = np.array(vcf['variants/POS'][snpsREQ])
-        return((snpCHR, snpPOS, snpGT, snpWEI, DPmean))
+        return((snpCHR, snpPOS, snpGT, snpWEI, snpDP))
 
     def filter_chr_names(self):
         ## provide genotypedata (pygwas genotype object)
