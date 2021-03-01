@@ -114,7 +114,7 @@ class GenotyperOutput(object):
             'likelihood': self.likelis,
             'lrt': self.lrts,
             'num_snps': self.num_snps,
-            'dp': self.dp 
+            'dp': np.nanmean(self.dp)
         } )
         output_table = output_table[ ['accs', 'matches', 'ninfo', 'probabilities', 'likelihood', 'lrt', 'num_snps', 'dp'] ]
         if outFile:
