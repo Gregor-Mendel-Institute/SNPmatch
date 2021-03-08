@@ -114,7 +114,7 @@ class Genotype(object):
         if return_float:
             self.pol_snps_fl = self.np_snp_to_pd_df(self.pol_snps, drop_na_all=True)
 
-    def get_af_snps(self, no_accs_missing_info, filter_snps_ix = None, filter_acc_ix = None, polarize_geno = 1, return_maf = True):
+    def get_af_snps(self, no_accs_missing_info, return_nind = False, filter_snps_ix = None, filter_acc_ix = None, polarize_geno = 1, return_maf = True):
         """
         A function to calculate allel-frequency given 2d array for SNPs
         input: 
@@ -133,16 +133,21 @@ class Genotype(object):
         else:
             snps_ix_to_check = np.array( filter_snps_ix )
         maf_snps = np.zeros(0, dtype="float")
+        nind_snps = np.zeros(0, dtype="int")
         for t_ix in range(0, snps_ix_to_check.shape[0], chunk_size):
             max_ix = min(snps_ix_to_check.shape[0], t_ix+chunk_size)
             t_s =  self.g.snps[snps_ix_to_check[t_ix:max_ix],:][:,acc_ix_to_check]
             t_t = acc_ix_to_check.shape[0] - np.sum(t_s == -1, axis = 1)
             t_no_1 = 2 * np.sum(t_s == polarize_geno, axis = 1) + np.sum(t_s == 2, axis = 1)
             t_maf = np.array(t_no_1, dtype=float) / np.multiply(2, t_t)
-            t_maf[ np.where(t_t <= no_accs_missing_info)[0] ] = np.nan
+            if not return_nind:
+                t_maf[ np.where(t_t <= no_accs_missing_info)[0] ] = np.nan
             maf_snps = np.append(maf_snps, t_maf )
+            nind_snps = np.append(nind_snps, t_t)
         if return_maf:
-            return( np.minimum( maf_snps, 1 - maf_snps ) )
+            maf_snps =  np.minimum( maf_snps, 1 - maf_snps )
+        if return_nind:
+            return( (maf_snps, nind_snps) )
         return(maf_snps)
 
     @staticmethod
@@ -209,6 +214,7 @@ class Genotype(object):
             assert len(req_bed) == 3, "provide a bed region, ex. Chr1,1,1000"
             req_bed[1] = int(req_bed[1])
             req_bed[2] = int(req_bed[2])
+        g_chr_pos = self.g.chr_regions[self.get_chr_ind( req_bed[0] )]
         g_pos = self.g.positions[g_chr_pos[0]:g_chr_pos[1]]
         snp_start_ix = np.searchsorted(g_pos, req_bed[1]) + g_chr_pos[0]
         snp_end_ix = np.searchsorted(g_pos, req_bed[2]) + g_chr_pos[0]
