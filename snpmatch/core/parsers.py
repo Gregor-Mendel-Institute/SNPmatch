@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 import allel
-import snpmatch
+from . import snpmatch
 import logging
 import os
 import json
@@ -131,7 +131,7 @@ class ParseInputs(object):
             vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
             sys.stderr = sys.__stderr__
         try:
-            snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt()[:, 0]
+            snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt().astype('U')[:, 0]
         except AttributeError:
             snpmatch.die("input VCF file doesnt have required GT field")
         snpsREQ = np.where((snpGT != './.') & (snpGT != '.|.'))[0]
