@@ -43,6 +43,19 @@ def snp_binary_to_gt(snpBinary):
     snpGT[np.where(snpBinary == 2)[0]] = "0/1"
     return(snpGT)
 
+
+def parse_sample_names(sample_files, file_sep = "_"):
+    sample_files = pd.Series(sample_files).astype(str)
+    input_ids = sample_files.apply( os.path.basename ).str.split(file_sep, expand=True)
+    if np.unique(input_ids.iloc[:,0]).shape[0] == input_ids.shape[0]:
+        input_ids = np.array(input_ids.iloc[:,0])
+    elif np.unique(input_ids.iloc[:,0] + file_sep + input_ids.iloc[:,1]).shape[0] == input_ids.shape[0]:
+        input_ids = np.array(input_ids.iloc[:,0] + file_sep + input_ids.iloc[:,1])
+    else:
+        input_ids = input_files.apply( os.path.basename ).str.replace( ".scores.txt", "" ).values
+    return(input_ids)
+    
+
 class ParseInputs(object):
     ## class object for parsing input files for SNPmatch
 
@@ -92,8 +105,12 @@ class ParseInputs(object):
             note = "Attention: low number of SNPs provided"
             case = 1
         snpst = np.unique(self.chrs, return_counts=True)
-        snpdict = dict(('%s' % snpst[0][i], snpst[1][i]) for i in range(len(snpst[0])))
-        statdict = {"interpretation": {"case": case, "text": note}, "snps": snpdict, "num_of_snps": NumSNPs, "depth": np.nanmean(self.dp)}
+        snpdict = dict(('%s' % snpst[0][i], int(snpst[1][i])) for i in range(len(snpst[0])))
+        statdict = {}
+        statdict["snps"] = snpdict
+        statdict["interpretation"] = {"case": case, "text": note}
+        statdict["num_of_snps"] = NumSNPs
+        statdict["depth"] = np.nanmean(self.dp)
         statdict['percent_heterozygosity'] = snpmatch.getHeterozygosity(self.gt)
         with open(outFile , "w") as out_stats:
             out_stats.write(json.dumps(statdict))
@@ -122,36 +139,21 @@ class ParseInputs(object):
         return(snpWEI)
 
     def read_vcf(self, inFile, logDebug):
-        if logDebug:
-            vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
-        else:
-            import io
-            import sys
-            sys.stderr = io.StringIO()
-            vcf = allel.read_vcf(inFile, samples = [0], fields = '*')
-            sys.stderr = sys.__stderr__
-        try:
-            snpGT = allel.GenotypeArray(vcf['calldata/GT']).to_gt().astype('U')[:, 0]
-        except AttributeError:
-            snpmatch.die("input VCF file doesnt have required GT field")
-        snpsREQ = np.where((snpGT != './.') & (snpGT != '.|.'))[0]
-        snpGT = snpGT[snpsREQ]
-        if 'calldata/PL' in sorted(vcf.keys()):
-            snpWEI = np.copy(vcf['calldata/PL'][snpsREQ, 0]).astype('float')
+        snp_inputs = import_vcf_file( inFile, logDebug, samples_to_load = [0] )
+        snp_inputs['gt'] = snp_inputs['gt'][:,0]
+        snpsREQ = np.where((snp_inputs['gt'] != './.') & (snp_inputs['gt'] != '.|.'))[0]
+        snpGT = snp_inputs['gt'][snpsREQ]
+        if 'wei' in sorted(snp_inputs.keys()):
+            snpWEI = snp_inputs['wei'][snpsREQ, 0]
             missing_pls = np.all(snpWEI == -1, axis = 1)
             snpWEI = snpWEI/(-10)
             snpWEI = np.exp(snpWEI)
             snpWEI[missing_pls,] = self.get_wei_from_GT(snpGT[missing_pls])
         else:
             snpWEI = self.get_wei_from_GT(snpGT)
-        snpCHR = np.array(vcf['variants/CHROM'][snpsREQ], dtype="str")
-        if 'calldata/DP' in sorted(vcf.keys()):
-            snpDP = vcf['calldata/DP'][snpsREQ,0]
-        elif 'variants/DP' in sorted(vcf.keys()):
-            snpDP = vcf['variants/DP'][snpsREQ]
-        else:
-            snpDP = np.repeat("NA", snpsREQ.shape[0])
-        snpPOS = np.array(vcf['variants/POS'][snpsREQ])
+        snpCHR = snp_inputs['chr'][snpsREQ]
+        snpPOS = snp_inputs['pos'][snpsREQ]
+        snpDP = snp_inputs['dp'][snpsREQ]
         return((snpCHR, snpPOS, snpGT, snpWEI, snpDP))
 
     def filter_chr_names(self):
@@ -172,6 +174,33 @@ class ParseInputs(object):
         )
         input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
 
+
+def import_vcf_file( inFile, logDebug, samples_to_load = [0]):
+    if logDebug:
+        vcf = allel.read_vcf(inFile, samples = samples_to_load, fields = '*')
+    else:
+        import io
+        import sys
+        sys.stderr = io.StringIO()
+        vcf = allel.read_vcf(inFile, samples = samples_to_load, fields = '*')
+        sys.stderr = sys.__stderr__
+    snp_inputs = {}
+    snp_inputs['samples'] = np.array(vcf['samples']).astype('U')
+    if 'calldata/GT' in sorted(vcf.keys()):
+        snp_inputs['gt'] = allel.GenotypeArray(vcf['calldata/GT']).to_gt().astype('U')
+    else:
+        snpmatch.die("input VCF file doesnt have required GT field")
+    if 'calldata/PL' in sorted(vcf.keys()):
+        snp_inputs['wei'] = np.copy(vcf['calldata/PL']).astype('float')
+    snp_inputs['chr'] = np.array(vcf['variants/CHROM'], dtype="str").astype('U')
+    snp_inputs['pos'] = np.array(vcf['variants/POS'])
+    # if 'calldata/DP' in sorted(vcf.keys()):
+    #     snp_inputs['dp'] = vcf['calldata/DP']
+    if 'variants/DP' in sorted(vcf.keys()):
+        snp_inputs['dp'] = vcf['variants/DP']
+    else:
+        snp_inputs['dp'] = np.repeat("NA", snp_inputs['pos'].shape[0])
+    return(snp_inputs)
 
 
 def potatoParser(inFile, logDebug, outFile = "parser"):
