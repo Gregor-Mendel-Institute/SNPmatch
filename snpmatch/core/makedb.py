@@ -1,7 +1,7 @@
 import logging
 import h5py
 import numpy as np
-from pygwas.core import genotype
+from snpmatch.pygwas import genotype
 import sys
 import os
 import os.path

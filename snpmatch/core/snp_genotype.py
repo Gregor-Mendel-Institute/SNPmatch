@@ -1,10 +1,10 @@
 import numpy as np
 import scipy as sp
-from pygwas.core import genotype
 import pandas as pd
 import logging
 import re
 from glob import glob
+from snpmatch.pygwas import genotype
 from . import parsers
 from . import genomes
 import allel
