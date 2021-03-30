@@ -6,22 +6,18 @@ SNPmatch is a Python toolkit which can be used to genotype a sample from as-low-
 
 The below steps deal with running SNPmatch on a local machine. This package is only tested in Python 2. Also consider using Nextflow when implementing it on your cluster, we have provided best practices scripts [here](https://github.com/rbpisupati/nf-snpmatch).
 
-### Installation using pip
+### Installation using conda
 
-SNPmatch can be easily installed with the help of pip. SNPmatch uses various python packages (NumPy, pandas, [PyGWAS](https://github.com/timeu/PyGWAS), [scikit-allel](https://github.com/cggh/scikit-allel)), which are automatically downloaded and installed while using pip. Follow the commands below for successful installation.
+SNPmatch can be easily installed either by conda (provided yml file) or pip. SNPmatch uses various python packages (NumPy, pandas, [scikit-allel](https://github.com/cggh/scikit-allel)), which are automatically downloaded. Follow the commands below for successful installation.
 
 ```bash
-## installing SNPmatch from git hub repository
+## Conda installation, after cloning the repo
+conda env create -f environment.yml
+## or installing SNPmatch from git hub repository
 pip install git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git
 ## or PyPi
 pip install SNPmatch
 ```
-SNPmatch can be installed either from the git repo or through PyPi. In case of installation errors, please install these dependencies using the commands below (for a Debian based system).
-```bash
-sudo apt-get install python-dev libfreetype6-dev libxft-dev libblas-dev liblapack-dev libatlas-base-dev libhdf5-dev gfortran
-sudo pip install NumPy
-```
-Mac users can install these packages using [Homebrew](https://brew.sh/). These packages should be enough to install SNPmatch correctly. Please raise an issue in the Github repo if you still have trouble installing.
 
 ### Database files
 
