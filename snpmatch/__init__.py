@@ -16,8 +16,8 @@ from snpmatch.core import makedb
 from snpmatch.core import simulate
 import logging, logging.config
 
-__version__ = '4.0.0'
-__updated__ = "31.01.2020"
+__version__ = '5.0.0'
+__updated__ = "30.03.2021"
 __date__ = "25.10.2016"
 
 def setLog(logDebug):
@@ -64,7 +64,6 @@ def get_options(program_license,program_version_message):
 
   genocross_parser = subparsers.add_parser('genotype_cross', help="Genotype the crosses by windows given parents")
   genocross_parser.add_argument("-i", "--input_file", dest="inFile", help="VCF file for the variants in the sample")
-  genocross_parser.add_argument("-a", "--all_samples", action="store_true", dest="all_samples", default=False, help="Provide this argument if input file is a matrix generated from GVCF containing all samples, needed to be genotyped.")
   genocross_parser.add_argument("-d", "--hdf5_file", default = None, dest="hdf5File", help="Path to SNP matrix given in binary hdf5 file chunked row-wise")
   genocross_parser.add_argument("-e", "--hdf5_acc_file", default = None, dest="hdf5accFile", help="Path to SNP matrix given in binary hdf5 file chunked column-wise")
   genocross_parser.add_argument("-p", "--parents", dest="parents", help="Parents for the cross, parent1 x parent2")

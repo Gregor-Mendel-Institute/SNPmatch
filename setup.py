@@ -10,7 +10,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='SNPmatch',
-    version='4.0.0',
+    version='5.0.0',
     description='A simple python library to identify the most likely strain given the SNPs for a sample',
     long_description=long_description,
     long_description_content_type='text/markdown',  # This is important for PyPi packaging
@@ -28,9 +28,8 @@ setup(
     packages=find_packages(exclude=['contrib', 'docs', 'tests*']),
     include_package_data=True,
     install_requires=[
-        "scipy >= 0.17.0",
-        "numpy >=1.9.0",
-        "PyGWAS",
+        "scipy",
+        "numpy",
         "scikit-allel",
         "pandas"
     ],

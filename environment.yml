@@ -1,39 +1,19 @@
-name: snpmatch
+name: snpmatch-5.0
 channels:
     - bioconda
     - anaconda
     - conda-forge
     - defaults
 dependencies:
-    - python=2.7.16
-    - numpy=1.16.4
+    - python=3.7.6
+    - numpy=1.17
+    - scipy=1.4.1
+    - pandas=1.0.5
+    - hmmlearn=0.2.4
     - bcftools=1.9
     - scikit-allel=1.2.1
-    - pip=19.2.2
-    - _libgcc_mutex=0.1
-    - _r-mutex=1.0.1
-    - binutils_impl_linux-64=2.33.1
-    - binutils_linux-64=2.33.1
-    - blas=2.11
-    - bokeh=1.4.0
-    - bwidget=1.9.14
-    - cairo=1.14.12
-    - fribidi=1.0.5
-    - gcc_impl_linux-64=7.3.0
-    - gcc_linux-64=7.3.0
-    - gfortran_impl_linux-64=7.3.0
-    - gfortran_linux-64=7.3.0
-    - graphite2=1.3.13
-    - gxx_impl_linux-64=7.3.0
-    - gxx_linux-64=7.3.0
-    - harfbuzz=1.9.0
-    - ld_impl_linux-64=2.33.1
-    - libgomp=9.2.0
-    - make=4.2.1
-    - pango=1.42.4
-    - pixman=0.38.0
+    - pip=20.1.1
     - r-base=3.6.0
     - r-qtl=1.44_9
-    - tktable=2.10
     - pip:
         - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"
