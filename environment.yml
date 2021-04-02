@@ -14,6 +14,7 @@ dependencies:
     - scikit-allel=1.2.1
     - pip=20.1.1
     - r-base=3.6.0
+    - r-rcpp 
     - r-qtl=1.44_9
     - pip:
         - "git+https://github.com/Gregor-Mendel-Institute/SNPmatch.git"

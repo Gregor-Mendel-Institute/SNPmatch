@@ -4,7 +4,7 @@ SNPmatch is a Python toolkit which can be used to genotype a sample from as-low-
 
 ## Installation & Usage
 
-The below steps deal with running SNPmatch on a local machine. This package is only tested in Python 2. Also consider using Nextflow when implementing it on your cluster, we have provided best practices scripts [here](https://github.com/rbpisupati/nf-snpmatch).
+The below steps deal with running SNPmatch on a local machine. Also consider using Nextflow when implementing it on your cluster, we have provided best practices scripts [here](https://github.com/rbpisupati/nf-snpmatch).
 
 ### Installation using conda
 
