@@ -184,8 +184,12 @@ class CrossIdentifier(object):
                     self.cross_identfier_json['genotype_windows'] = {'chr_bins': None, 'coordinates': {'x': None, 'y': None}}
                     self.cross_identfier_json['parents'] = {'mother': [None,0], 'father': [None,1]}
             with open(out_file, "w") as out_stats:
-                out_stats.write(json.dumps(self.cross_identfier_json, sort_keys=True, indent=4))
+                out_stats.write(json.dumps(self.cross_identfier_json, sort_keys=True, indent=4, default = convert_int64))
 
+def convert_int64(o):
+    if isinstance(o, numpy.int64):
+        return int(o)  
+    #raise TypeError
 
 def potatoCrossIdentifier(args):
     inputs = parsers.ParseInputs(inFile = args['inFile'], logDebug = args['logDebug'])

@@ -22,10 +22,12 @@ def die(msg):
     sys.stderr.write('Error: ' + msg + '\n')
     sys.exit(1)
 
-def get_fraction(x, y):
-    if y == 0:
+def get_fraction(x, y, y_min = 0):
+    if y <= y_min:
         return(np.nan)
     return(float(x)/y)
+
+np_get_fraction = np.vectorize(get_fraction, excluded = "y_min")
 
 def likeliTest(n, y):
     ## n == total informative sites
