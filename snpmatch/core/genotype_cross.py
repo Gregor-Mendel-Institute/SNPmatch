@@ -197,7 +197,6 @@ class GenotypeCross(object):
                 t_genotypes.iloc[:, sample_ix] = t_model.predict(ebin_gt_polarized.reshape((-1, 1)))
             allSNPGenos = allSNPGenos.append(t_genotypes)
             allSNPGenos_raw = allSNPGenos_raw.append(t_genotypes_raw)
-            import ipdb; ipdb.set_trace()
         pos_em_cm = pd.Series(allSNPGenos.index, index = allSNPGenos.index).str.replace(":",",").apply(genome.estimated_cM_distance)
         allSNPGenos = allSNPGenos.astype(str).agg(','.join, axis=1)
         to_rqtl_result = pd.Series(allSNPGenos.index, index = allSNPGenos.index )
