@@ -77,7 +77,7 @@ class FollowSNPmatch(object):
                     error_rate = error_rate
                 )
         else:
-            assert req_name in self._instances, "provided %s is not present in instances" % req_name
+            assert pd.Series(req_name).isin( self._instances )[0], "provided %s is not present in instances" % req_name
             self.__getattribute__(req_name)['identity'] = snpmatch.np_test_identity(
                 x = self.__getattribute__(req_name)['Score'] * self.__getattribute__(req_name)['SNPsinfoAcc'], 
                 n = self.__getattribute__(req_name)['SNPsinfoAcc'], 
