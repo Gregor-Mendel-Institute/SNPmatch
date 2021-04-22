@@ -85,31 +85,129 @@ class GenotypeCross(object):
             ## die if either parents are not in the dataset
             assert len(parents.split("x")) == 2, "parents should be provided as '6091x6191'"
             try:
-                indP1 = np.where(self.g.g_acc.accessions == parents.split("x")[0])[0][0]
-                indP2 = np.where(self.g.g_acc.accessions == parents.split("x")[1])[0][0]
+                indP1 = np.where(self.g.accessions == parents.split("x")[0])[0][0]
+                indP2 = np.where(self.g.accessions == parents.split("x")[1])[0][0]
             except:
                 snpmatch.die("parents are not in the dataset")
             snpsP1 = self.g.g_acc.snps[:,indP1]
             snpsP2 = self.g.g_acc.snps[:,indP2]
+            self.p1_ix = indP1
+            self.p2_ix = indP2
             commonSNPsCHR = np.array(self.g.g_acc.chromosomes)
             commonSNPsPOS = np.array(self.g.g_acc.positions)
             log.info("done!")
         segSNPsind = np.where((snpsP1 != snpsP2) & (snpsP1 >= 0) & (snpsP2 >= 0) & (snpsP1 < 2) & (snpsP2 < 2))[0]
+        # segSNPsind = np.where((snpsP1 != snpsP2) )[0]
         log.info("number of segregating snps between parents: %s", len(segSNPsind))
-        self.commonSNPsCHR = commonSNPsCHR[segSNPsind]
+        self.commonSNPsCHR = commonSNPsCHR[segSNPsind].astype('U')
         self.commonSNPsPOS = commonSNPsPOS[segSNPsind]
         self.snpsP1 = snpsP1[segSNPsind]
         self.snpsP2 = snpsP2[segSNPsind]
         log.info("done!")
 
-    def _get_common_positions_ixs(self, accs_ix, sample_ix):
+    def _get_common_positions_ixs(self, accs_pos, samples_pos, accs_ix, sample_ix):
         ## Make sure you have inputs loaded
-        reqAccsPOS = self.commonSNPsPOS[accs_ix]
-        reqTarPos = self._inputs.pos[sample_ix]
+        reqAccsPOS = accs_pos[accs_ix]
+        reqTarPos = samples_pos[sample_ix]
         commonPOS = np.intersect1d( reqAccsPOS, reqTarPos )
         matchedAccInd = np.array(accs_ix)[ np.where( np.in1d(reqAccsPOS, reqTarPos) )[0] ]
         matchedTarInd = np.array(sample_ix)[ np.where( np.in1d(reqTarPos, reqAccsPOS) )[0] ]
         return((matchedAccInd, matchedTarInd))
+    
+    @staticmethod
+    def get_parental_obs(input_gt, snpsP1_gt, snpsP2_gt, polarize = None):
+        num_snps = len(input_gt)
+        ebTarGTs = parsers.parseGT(input_gt)
+        ebPolarised = np.zeros(num_snps, dtype=int)
+        ### Here I am having 6 observed states. to consider SNPs where either of the parent shows -1 
+        ## ('00', '01', '11', '0', '1', 'NA') 
+        ##    0,    1,    2,   3,   4,    5
+        ebPolarised[:] = 5
+        ebPolarised[np.where(np.equal( ebTarGTs, np.repeat(2, num_snps) ))[0] ] = 1
+        snpsP1_gt_mask = numpy.ma.masked_less(numpy.ma.masked_greater(snpsP1_gt, 1), 0)
+        snpsP2_gt_mask = numpy.ma.masked_less(numpy.ma.masked_greater(snpsP2_gt, 1), 0)
+        ebPolarised[np.where((np.equal( ebTarGTs, snpsP1_gt_mask )) & (~snpsP2_gt_mask) )[0] ] = 0  ## 00
+        ebPolarised[np.where((np.equal( ebTarGTs, snpsP1_gt_mask )) & (snpsP2_gt_mask) )[0] ] = 3 ## 0
+        ebPolarised[np.where((np.equal( ebTarGTs, snpsP2_gt_mask )) & (~snpsP1_gt_mask) )[0] ] = 2  ## 11
+        ebPolarised[np.where((np.equal( ebTarGTs, snpsP2_gt_mask )) & (snpsP1_gt_mask) )[0] ] = 4 ## 1
+        return(ebPolarised)
+    
+    @staticmethod
+    def init_hmm(num_markers, chromosome_size = 115, recomb_rate = 3.3):
+        """
+        Function to initilize a HMM model 
+        Input: 
+            number of markers
+            recomb_rate: assumed rate of recombination (cM per Mb)
+            genome_size: size of chromosome in Mb
+        """
+        from hmmlearn import hmm
+        ### The below transition probability is for a intercross, adapted from R/qtl
+        log.info("Initialising HMM")
+        states = ('aa', 'ab', 'bb')
+        observations = ('00', '01', '11', '0', '1', 'NA')
+        ## assume A. thaliana genome size of 115 Mb 
+        ## First calculate the average spacing between the markers
+        ## chromosome_size / num_markers 
+        ##_____
+        ## given a recombination rate of ~3.3 
+        # probability you see a recombinant is 1 / (100 * recomb_rate)
+        prob_of_change = ( chromosome_size / num_markers ) * ( 1 / (100 * recomb_rate)  )
+        transmission_prob = {
+            'aa': {'aa': 1 - prob_of_change, 'ab': prob_of_change/2, 'bb': prob_of_change/2},
+            'ab': {'aa': prob_of_change/2, 'ab': 1 - prob_of_change, 'bb': prob_of_change/2},
+            'bb': {'aa': prob_of_change/2, 'ab': prob_of_change/2, 'bb': 1 - prob_of_change}
+        }
+        ## Since I have 6 possible observed states -- I have made an emmission matrix with such a structure.
+        emission_prob = {
+            'aa': {'00': 0.599, '01': 0.1, '11': 0.001, '0': 0.52, '1': 0, 'NA': 0.33},
+            'ab': {'00': 0.4, '01': 0.8, '11': 0.4, '0': 0.48, '1': 0.48, 'NA': 0.34},
+            'bb': {'00': 0.001, '01': 0.1, '11': 0.599, '0': 0, '1': 0.52, 'NA': 0.33}
+        }
+        model = hmm.MultinomialHMM(n_components=3) 
+        model.startprob_ = np.array([0.25, 0.5, 0.25])
+        model.transmat_ = pd.DataFrame(transmission_prob)
+        model.emissionprob_ = pd.DataFrame(emission_prob).T
+        return(model)
+
+    def genotype_cross_hmm(self, input_file):
+        """
+        Function to genotype an F2 individual based on segregating SNPs using a simple HMM model
+        """
+        snpvcf = parsers.import_vcf_file(inFile = input_file, logDebug = self.logDebug, samples_to_load = None)
+        samples_ids = pd.Series(snpvcf['samples']) #.str.replace("_processed_reads_no_clonal.bam", "" )
+        # if np.unique(samples_ids.str.split("_", expand = True).iloc[:,0]).shape[0] == samples_ids.shape[0]:
+        #     samples_ids = samples_ids.str.split("_", expand = True).iloc[:,0]
+        samples_gt = snpvcf['gt']
+        samples_gt = pd.DataFrame(samples_gt.astype(str))
+        input_chr_names = genome.chrs[pd.Series(snpvcf['chr'], dtype = str).apply(genome.get_chr_ind)]
+        g_chr_names = genome.chrs[pd.Series(self.commonSNPsCHR, dtype = str).apply(genome.get_chr_ind)]
+        allSNPGenos = pd.DataFrame( - np.ones((0,samples_gt.shape[1]), dtype=int) )
+        allSNPGenos_raw = pd.DataFrame( - np.ones((0,samples_gt.shape[1]), dtype=int) )
+        for ec, eclen in zip(genome.chrs_ids, genome.chrlen):
+            reqPOSind =  np.where(g_chr_names == ec)[0]
+            reqTARind = np.where( input_chr_names == ec )[0]
+            ebAccsInds, ebTarInds = self._get_common_positions_ixs(self.commonSNPsPOS, snpvcf['pos'], reqPOSind, reqTARind)
+            t_model = self.init_hmm( len(ebAccsInds), eclen / 1000000 )
+            t_genotypes = pd.DataFrame( - np.ones((len(ebAccsInds),samples_gt.shape[1]), dtype=int), index = ec + ":" + pd.Series(self.commonSNPsPOS[ebAccsInds]).astype(str) )
+            t_genotypes_raw = pd.DataFrame( - np.ones((len(ebAccsInds),samples_gt.shape[1]), dtype=int), index = ec + ":" + pd.Series(self.commonSNPsPOS[ebAccsInds]).astype(str) )
+            for sample_ix in range(samples_gt.shape[1]):
+                ebin_gt_polarized = self.get_parental_obs(samples_gt.iloc[ebTarInds,sample_ix].values, self.snpsP1[ebAccsInds], self.snpsP2[ebAccsInds])
+                t_genotypes_raw.iloc[:, sample_ix] = ebin_gt_polarized
+                t_genotypes.iloc[:, sample_ix] = t_model.predict(ebin_gt_polarized.reshape((-1, 1)))
+            allSNPGenos = allSNPGenos.append(t_genotypes)
+            allSNPGenos_raw = allSNPGenos_raw.append(t_genotypes_raw)
+            import ipdb; ipdb.set_trace()
+        pos_em_cm = pd.Series(allSNPGenos.index, index = allSNPGenos.index).str.replace(":",",").apply(genome.estimated_cM_distance)
+        allSNPGenos = allSNPGenos.astype(str).agg(','.join, axis=1)
+        to_rqtl_result = pd.Series(allSNPGenos.index, index = allSNPGenos.index )
+        to_rqtl_result = to_rqtl_result + "," + pd.Series(allSNPGenos.index, index = allSNPGenos.index ).str.split(":", expand = True).iloc[:,0]
+        to_rqtl_result = to_rqtl_result + "," + pos_em_cm.astype(str)
+        to_rqtl_result = to_rqtl_result + "," + allSNPGenos
+        to_rqtl_result = pd.Series(('pheno,,' + ',0' * len(samples_ids))).append(to_rqtl_result , ignore_index=True)
+        to_rqtl_result = pd.Series( ('id,,,' + str(pd.Series(samples_ids).str.cat(sep=",")) ) ).append(to_rqtl_result , ignore_index=True)
+        return(to_rqtl_result)
+    
 
     @staticmethod
     def get_window_genotype_gts(input_gt, snpsP1_gt, snpsP2_gt, lr_thres):
@@ -124,91 +222,51 @@ class GenotypeCross(object):
         matHetno = len(np.where(np.equal( TarGTBinary, np.repeat(2, num_snps) ))[0])
         return(getWindowGenotype([matP1no, matHetno, matP2no], num_snps, lr_thres))
 
-    def genotype_each_cross(self, input_file, lr_thres):
-        ## Input file
-        self._inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
-        ## Inputs is the ParseInputs class object
-        log.info("running cross genotyper")
+    def filter_good_samples(self, snpvcf, good_samples_file):
+        if good_samples_file is None:
+            return(snpvcf)
+        good_samples = np.array(pd.read_table(good_samples_file, header = None), dtype=str)
+        good_samples_ix = np.zeros(0, dtype=int)
+        for ef_ix,ef in enumerate(snpvcf.columns.values[2:]):
+            find_ix = np.where(good_samples == ef.split("_")[0])[0]
+            if len(find_ix) == 0:
+                find_ix = np.where(good_samples == ef.split("_")[0] + ef.split("_")[1] )[0]
+            if len(find_ix) > 0:
+                good_samples_ix = np.append(good_samples_ix, ef_ix + 2)
+        return(snpvcf.iloc[:, np.append((0,1), good_samples_ix) ])
+
+    def genotype_cross(self, input_file, lr_thres, good_samples_file=None):
+        log.info("loading input files!")
+        snpvcf = parsers.import_vcf_file(inFile = input_file, logDebug = self.logDebug, samples_to_load = None)
+        num_samples = snpvcf['samples'].shape[0] 
+        log.info("number of samples printed: %s" % num_samples )
+        log.warn("Using an average recombination rates of 3. Please change it according or use R/qtl package to generate genetic map.")
+        mean_recomb_rates = np.repeat(3, len(genome.chrs_ids))
         iter_bins_genome = genome.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = genome.get_bins_arrays(self._inputs.chrs, self._inputs.pos, self.window_size)
+        iter_bins_snps = genome.get_bins_arrays(snpvcf['chr'], snpvcf['pos'], self.window_size)
         bin_inds = 0
-        outfile_str = np.zeros(0, dtype="string")
-        for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
-            # first snp positions which are segregating and are in this window
-            bin_str = genome.chrs_ids[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1])
-            matchedAccInd, matchedTarInd = self._get_common_positions_ixs( e_b[2], e_s[2] )
+        outfile_str = np.array(('id,,,' + pd.Series(snpvcf['samples']).str.cat(sep = ',')  ), dtype=str)
+        outfile_str = np.append(outfile_str, 'pheno,' + ',' + ',0' * num_samples)
+        for e_b, e_s in zip(iter_bins_genome, iter_bins_snps):
+            bin_str = genome.chrs_ids[e_b[0]] + ":" + str(e_b[1][0]) + "-" + str(e_b[1][1])
+            cm_mid = genome.estimated_cM_distance( genome.chrs_ids[e_b[0]] + "," + str(int(round(np.mean(e_b[1]))))  )
+            reqPOS = self.commonSNPsPOS[e_b[2]]
+            perchrTarPos = snpvcf['pos'][e_s[2]]
+            matchedAccInd = np.array(e_b[2], dtype=int)[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
+            matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
             if len(matchedTarInd) == 0:
-                outfile_str = np.append(outfile_str, "%s\t%s\t%s\tNA\tNA" % (bin_str, len(matchedTarInd), len(e_b[2])) )
+                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, genome.chrs_ids[e_b[0]],  cm_mid, ',NA' * num_samples ) )
             else:
-                matchedTarGTs = self._inputs.gt[matchedTarInd]
-                (geno, pval) = self.get_window_genotype_gts(matchedTarGTs, self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd], lr_thres)
-                outfile_str = np.append(outfile_str, "%s\t%s\t%s\t%s\t%s" % (bin_str, len(matchedTarInd), len(e_b[2]), geno, pval))
+                geno_samples = ''
+                for sample_ix in range(num_samples):
+                    (geno, pval) = self.get_window_genotype_gts(snpvcf['gt'][matchedTarInd,sample_ix], self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd], lr_thres)
+                    geno_samples = geno_samples + ',' + str(geno)
+                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, genome.chrs_ids[e_b[0]],  cm_mid, geno_samples ) )
             bin_inds += 1
             if bin_inds % 40 == 0:
                 log.info("progress: %s windows", bin_inds)
         log.info("done!")
         return(outfile_str)
-
-    @staticmethod
-    def get_probabilities_ebin(input_gt, snpsP1_gt, snpsP2_gt, error_prob = 0.01):
-        num_snps = len(input_gt)
-        ebTarGTs = parsers.parseGT(input_gt)
-        ebPolarised = np.zeros(num_snps, dtype=int)
-        ebPolarised[np.where(np.equal( ebTarGTs, snpsP1_gt ))[0] ] = 0
-        ebPolarised[np.where(np.equal( ebTarGTs, snpsP2_gt ))[0] ] = 2
-        ebPolarised[np.where(np.equal( ebTarGTs, np.repeat(2, num_snps) ))[0] ] = 1
-        eb_probs = np.repeat(error_prob / 2, num_snps * 3).reshape((-3, 3))
-        for i_ix in range(num_snps):
-            eb_probs[i_ix,ebPolarised[i_ix]] = 1 - error_prob
-        return( eb_probs )
-
-
-    def genotype_each_cross_hmm(self, input_file, n_marker_thres):
-        self._inputs = parsers.ParseInputs(inFile = input_file, logDebug = self.logDebug)
-        ## Inputs is the ParseInputs class object
-        self._inputs.filter_chr_names()
-        from hmmlearn import hmm
-        ### The below transition probability is for a intercross, adapted from R/qtl
-        log.info("running HMM")
-        #r_i = float(self.window_size) * 0.38 /1000000
-        r_i = 4000 * 3.8 /1000000
-        e_p = 0.01
-        assert r_i < 1, "Provide either small window size or check the mean recombination rate"
-        log.info("recombination fraction between windows: %.2f" % r_i)
-        transprob = np.array( [[ (1-r_i)**2, 2*r_i*(1-r_i), r_i**2 ], [r_i*(1-r_i), (1-r_i)**2 + r_i**2, r_i*(1-r_i)], [ r_i**2, 2*r_i*(1-r_i), (1-r_i)**2 ]] )
-        log.info("error rate for genotyping: %.2f" % e_p)
-        model = hmm.GaussianHMM(n_components=3, covariance_type="full", n_iter = 1000)
-        model.startprob_ = np.array([0.25, 0.5, 0.25])
-        model.transmat_ = transprob
-        log.info("Transision matrix: %s" % transprob)
-        model.means_ = np.array( [ [1, 0, 0], [0, 1, 0], [0, 0, 1] ] )
-        model.covars_ = np.tile(np.identity(3), (3, 1, 1))
-        allSNPGenos = np.zeros(0, dtype=int)
-        for ec, eclen in itertools.izip(genome.chrs_ids, genome.chrlen):
-            reqPOSind =  np.where(self.commonSNPsCHR == ec)[0]
-            reqTARind = np.where( self._inputs.g_chrs == ec )[0]
-            ebAccsInds, ebTarInds = self._get_common_positions_ixs(reqPOSind, reqTARind)
-            eb_SNPprobs = np.zeros((len(reqPOSind), 3))
-            ebin_prob = self.get_probabilities_ebin(self._inputs.gt[ebTarInds], self.snpsP1[ebAccsInds], self.snpsP2[ebAccsInds])
-            eb_SNPprobs[ebAccsInds - reqPOSind[0],] = ebin_prob
-            allSNPGenos = np.append(allSNPGenos, model.predict( eb_SNPprobs ))
-        iter_bins_genome = genome.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = genome.get_bins_arrays(self._inputs.chrs, self._inputs.pos, self.window_size)
-        outfile_str = np.zeros(0, dtype="string")
-        for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
-            matchedAccInd, matchedTarInd = self._get_common_positions_ixs( e_b[2], e_s[2] )
-            bin_str = genome.chrs_ids[e_b[0]] + "\t" + str(e_b[1][0]) + "\t" + str(e_b[1][1]) + "\t" + str(len(matchedTarInd)) + "\t" + str(len(e_b[2]))
-            t_genos = np.unique(allSNPGenos[e_b[2]])
-            t_genos_nums = pd.Series([ len( np.where( allSNPGenos[e_b[2]] == e )[0] )  for e in [0, 1, 2]]).astype(str).str.cat(sep=",")
-            if len(e_b[2]) > 0:
-                if len(t_genos) == 1:
-                    outfile_str = np.append(outfile_str, "%s\t%s\t%s" % (bin_str, t_genos[0], t_genos_nums) )
-                else:
-                    outfile_str = np.append(outfile_str, "%s\t%s\t%s" % (bin_str, 1, t_genos_nums) )
-            else:
-                outfile_str = np.append(outfile_str, "%s\t%s\t%s" % (bin_str, 'NA', 'NA' ) )
-        return(outfile_str)
-
 
     @staticmethod
     def write_output_genotype_cross(outfile_str, output_file ):
@@ -219,64 +277,20 @@ class GenotypeCross(object):
         outfile.close()
         log.info("done!")
 
-    def filter_good_samples(self, snpvcf, good_samples_file):
-        if good_samples_file is None:
-            return(snpvcf)
-        good_samples = np.array(pd.read_table(good_samples_file, header = None), dtype="string")
-        good_samples_ix = np.zeros(0, dtype=int)
-        for ef_ix,ef in enumerate(snpvcf.columns.values[2:]):
-            find_ix = np.where(good_samples == ef.split("_")[0])[0]
-            if len(find_ix) == 0:
-                find_ix = np.where(good_samples == ef.split("_")[0] + ef.split("_")[1] )[0]
-            if len(find_ix) > 0:
-                good_samples_ix = np.append(good_samples_ix, ef_ix + 2)
-        return(snpvcf.iloc[:, np.append((0,1), good_samples_ix) ])
 
-    @staticmethod
-    def print_ids(snpvcf):
-        all_samples = pd.Series(snpvcf.columns.values[2:]).str.split("_", n = 2, expand=True)
-        if len(np.unique(all_samples.iloc[:,0])) == all_samples.shape[0]:
-            return(all_samples.iloc[:,0].str.cat(sep = ','))
-        all_samples = all_samples.iloc[:,0].map(str) + all_samples.iloc[:,1].map(str)
-        return(all_samples.str.cat(sep = ','))
-
-    def genotype_cross_all_samples(self, sample_file, lr_thres, good_samples_file=None):
-        log.info("loading input files!")
-        snpvcf = pd.read_table(sample_file)
-        snpvcf = self.filter_good_samples(snpvcf, good_samples_file)
-        num_samples = snpvcf.shape[1] - 2
-        log.info("number of samples printed: %s" % num_samples )
-        if "recomb_rates" in genome.json.keys():
-            mean_recomb_rates = genome['recomb_rates']
-        else:
-            log.warn("Average recombination rates were missing in genome file. Add rates for each chromosome as an array in genome json file under 'recomb_rates' key. Using default rate of 3")
-            mean_recomb_rates = np.repeat(3, len(genome.chrs_ids))
-        iter_bins_genome = genome.get_bins_arrays(self.commonSNPsCHR, self.commonSNPsPOS, self.window_size)
-        iter_bins_snps = genome.get_bins_arrays(np.array(snpvcf.iloc[:,0]), np.array(snpvcf.iloc[:,1]), self.window_size)
-        bin_inds = 0
-        outfile_str = np.array(('id,,,' + self.print_ids(snpvcf)), dtype="string")
-        outfile_str = np.append(outfile_str, 'pheno,' + ',' + ',0' * num_samples)
-        for e_b, e_s in itertools.izip(iter_bins_genome, iter_bins_snps):
-            bin_str = genome.chrs_ids[e_b[0]] + ":" + str(e_b[1][0]) + "-" + str(e_b[1][1])
-            cm_mid = genome.estimated_cM_distance( genome.chrs_ids[e_b[0]] + "," + str(np.mean(e_b[1])) )
-            reqPOS = self.commonSNPsPOS[e_b[2]]
-            perchrTarPos = np.array(snpvcf.iloc[e_s[2], 1])
-            matchedAccInd = np.array(e_b[2], dtype=int)[ np.where( np.in1d(reqPOS, perchrTarPos) )[0] ]
-            matchedTarInd = np.array(e_s[2], dtype=int)[ np.where( np.in1d(perchrTarPos, reqPOS) )[0] ]
-            if len(matchedTarInd) == 0:
-                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, genome.chrs_ids[e_b[0]],  cm_mid, ',NA' * num_samples ) )
-            else:
-                geno_samples = ''
-                for sample_ix in range(num_samples):
-                    (geno, pval) = self.get_window_genotype_gts(np.array(snpvcf.iloc[matchedTarInd, sample_ix + 2]), self.snpsP1[matchedAccInd], self.snpsP2[matchedAccInd], lr_thres)
-                    geno_samples = geno_samples + ',' + str(geno)
-                outfile_str = np.append(outfile_str, "%s,%s,%s%s" % (bin_str, genome.chrs_ids[e_b[0]],  cm_mid, geno_samples ) )
-            bin_inds += 1
-            if bin_inds % 40 == 0:
-                log.info("progress: %s windows", bin_inds)
-        log.info("done!")
-        return(outfile_str)
-
+def uniq_neighbor(a):
+    sorted_a_count = np.zeros(0, dtype = int)
+    sorted_a = np.zeros(0, dtype = a.dtype)
+    for ef_ix in range(0, len(a)):
+        if a[ef_ix] != a[ef_ix-1]:
+            sorted_a = np.append(sorted_a, a[ef_ix])
+            sorted_a_count = np.append(sorted_a_count, 1)
+        elif np.sum(sorted_a_count) == 0:
+            sorted_a = np.append(sorted_a, a[ef_ix])
+            sorted_a_count[-1] += 1
+        elif a[ef_ix] == a[ef_ix-1]:
+            sorted_a_count[-1] += 1
+    return((sorted_a, sorted_a_count))
 
 def potatoCrossGenotyper(args):
     ## Get the VCF file (filtered may be) generated by GATK.
@@ -292,10 +306,8 @@ def potatoCrossGenotyper(args):
     g = snp_genotype.Genotype(args['hdf5File'], args['hdf5accFile'])
     log.info("done!")
     crossgenotyper = GenotypeCross(g, args['parents'], args['binLen'], args['father'], args['logDebug'])
-    if args['all_samples']:
-        outfile_str = crossgenotyper.genotype_cross_all_samples( args['inFile'], args['lr_thres'], args['good_samples'] )
-    elif args['hmm']:
-        outfile_str = crossgenotyper.genotype_each_cross_hmm( args['inFile'], 5 )
+    if args['hmm']:
+        outfile_str = crossgenotyper.genotype_cross_hmm( args['inFile'] )        
     else:
-        outfile_str = crossgenotyper.genotype_each_cross( args['inFile'], args['lr_thres'] )
+        outfile_str = crossgenotyper.genotype_cross( args['inFile'], args['lr_thres'] )
     crossgenotyper.write_output_genotype_cross( outfile_str, args['outFile'] )
