@@ -96,6 +96,10 @@ class GenotypeCross(object):
             commonSNPsCHR = np.array(self.g.g_acc.chromosomes)
             commonSNPsPOS = np.array(self.g.g_acc.positions)
             log.info("done!")
+        ## only considering sites where two parents differ ---
+        # 1. excluding any site which is heterozygous in either parent
+        # 2. also excluding sites when it is NA in atleast one parent.
+        ## you do not need a lot of markers to construct the map .. but rather perfect sites
         segSNPsind = np.where((snpsP1 != snpsP2) & (snpsP1 >= 0) & (snpsP2 >= 0) & (snpsP1 < 2) & (snpsP2 < 2))[0]
         # segSNPsind = np.where((snpsP1 != snpsP2) )[0]
         log.info("number of segregating snps between parents: %s", len(segSNPsind))
@@ -127,13 +131,14 @@ class GenotypeCross(object):
         snpsP1_gt_mask = numpy.ma.masked_less(numpy.ma.masked_greater(snpsP1_gt, 1), 0)
         snpsP2_gt_mask = numpy.ma.masked_less(numpy.ma.masked_greater(snpsP2_gt, 1), 0)
         ebPolarised[np.where((np.equal( ebTarGTs, snpsP1_gt_mask )) & (~snpsP2_gt_mask) )[0] ] = 0  ## 00
-        ebPolarised[np.where((np.equal( ebTarGTs, snpsP1_gt_mask )) & (snpsP2_gt_mask) )[0] ] = 3 ## 0
         ebPolarised[np.where((np.equal( ebTarGTs, snpsP2_gt_mask )) & (~snpsP1_gt_mask) )[0] ] = 2  ## 11
+        ### additional observation points
+        ebPolarised[np.where((np.equal( ebTarGTs, snpsP1_gt_mask )) & (snpsP2_gt_mask) )[0] ] = 3 ## 0
         ebPolarised[np.where((np.equal( ebTarGTs, snpsP2_gt_mask )) & (snpsP1_gt_mask) )[0] ] = 4 ## 1
         return(ebPolarised)
     
     @staticmethod
-    def init_hmm(num_markers, chromosome_size = 115, recomb_rate = 3.3):
+    def init_hmm(num_markers, chromosome_size = 115, recomb_rate = 3.3, n_iter = 100):
         """
         Function to initilize a HMM model 
         Input: 
@@ -143,7 +148,6 @@ class GenotypeCross(object):
         """
         from hmmlearn import hmm
         ### The below transition probability is for a intercross, adapted from R/qtl
-        log.info("Initialising HMM")
         states = ('aa', 'ab', 'bb')
         observations = ('00', '01', '11', '0', '1', 'NA')
         ## assume A. thaliana genome size of 115 Mb 
@@ -153,21 +157,25 @@ class GenotypeCross(object):
         ## given a recombination rate of ~3.3 
         # probability you see a recombinant is 1 / (100 * recomb_rate)
         prob_of_change = ( chromosome_size / num_markers ) * ( 1 / (100 * recomb_rate)  )
-        transmission_prob = {
-            'aa': {'aa': 1 - prob_of_change, 'ab': prob_of_change/2, 'bb': prob_of_change/2},
-            'ab': {'aa': prob_of_change/2, 'ab': 1 - prob_of_change, 'bb': prob_of_change/2},
-            'bb': {'aa': prob_of_change/2, 'ab': prob_of_change/2, 'bb': 1 - prob_of_change}
-        }
-        ## Since I have 6 possible observed states -- I have made an emmission matrix with such a structure.
-        emission_prob = {
-            'aa': {'00': 0.599, '01': 0.1, '11': 0.001, '0': 0.52, '1': 0, 'NA': 0.33},
-            'ab': {'00': 0.4, '01': 0.8, '11': 0.4, '0': 0.48, '1': 0.48, 'NA': 0.34},
-            'bb': {'00': 0.001, '01': 0.1, '11': 0.599, '0': 0, '1': 0.52, 'NA': 0.33}
-        }
-        model = hmm.MultinomialHMM(n_components=3) 
+        transmission_prob = [
+            [1 - prob_of_change,  prob_of_change/2,   prob_of_change/2],
+            [prob_of_change/2,    1 - prob_of_change, prob_of_change/2],
+            [prob_of_change/2,    prob_of_change/2,   1 - prob_of_change]
+        ]
+        ## Since there are 6 observed states . we need 3x6 matrix
+        ## ('00', '01', '11', '0', '1', 'NA') 
+        ##    0,    1,    2,   3,   4,    5
+        emission_prob = [ 
+            [0.65,   0.1,  0.01,  0.5,  0.1,  0.33 ], 
+            [0.34,    0.8,  0.34,    0.4,  0.4,  0.34 ],
+            [0.01,  0.1,  0.65,   0.1,  0.5,  0.33 ]
+        ]
+        model = hmm.MultinomialHMM(n_components=3, n_iter = n_iter, algorithm = "viterbi") 
         model.startprob_ = np.array([0.25, 0.5, 0.25])
         model.transmat_ = pd.DataFrame(transmission_prob)
-        model.emissionprob_ = pd.DataFrame(emission_prob).T
+        model.emissionprob_ = pd.DataFrame(emission_prob)
+        log.info("initialising HMM with transition prob")
+        log.info("%s" % pd.DataFrame(transmission_prob) )
         return(model)
 
     def genotype_cross_hmm(self, input_file):
@@ -184,17 +192,17 @@ class GenotypeCross(object):
         g_chr_names = genome.chrs[pd.Series(self.commonSNPsCHR, dtype = str).apply(genome.get_chr_ind)]
         allSNPGenos = pd.DataFrame( - np.ones((0,samples_gt.shape[1]), dtype=int) )
         allSNPGenos_raw = pd.DataFrame( - np.ones((0,samples_gt.shape[1]), dtype=int) )
+        t_model = self.init_hmm( samples_gt.shape[0] )
         for ec, eclen in zip(genome.chrs_ids, genome.chrlen):
             reqPOSind =  np.where(g_chr_names == ec)[0]
             reqTARind = np.where( input_chr_names == ec )[0]
             ebAccsInds, ebTarInds = self._get_common_positions_ixs(self.commonSNPsPOS, snpvcf['pos'], reqPOSind, reqTARind)
-            t_model = self.init_hmm( len(ebAccsInds), eclen / 1000000 )
             t_genotypes = pd.DataFrame( - np.ones((len(ebAccsInds),samples_gt.shape[1]), dtype=int), index = ec + ":" + pd.Series(self.commonSNPsPOS[ebAccsInds]).astype(str) )
             t_genotypes_raw = pd.DataFrame( - np.ones((len(ebAccsInds),samples_gt.shape[1]), dtype=int), index = ec + ":" + pd.Series(self.commonSNPsPOS[ebAccsInds]).astype(str) )
             for sample_ix in range(samples_gt.shape[1]):
                 ebin_gt_polarized = self.get_parental_obs(samples_gt.iloc[ebTarInds,sample_ix].values, self.snpsP1[ebAccsInds], self.snpsP2[ebAccsInds])
                 t_genotypes_raw.iloc[:, sample_ix] = ebin_gt_polarized
-                t_genotypes.iloc[:, sample_ix] = t_model.predict(ebin_gt_polarized.reshape((-1, 1)))
+                t_genotypes.iloc[:, sample_ix] = t_model.decode(ebin_gt_polarized.reshape((-1, 1)), algorithm='viterbi')[1]
             allSNPGenos = allSNPGenos.append(t_genotypes)
             allSNPGenos_raw = allSNPGenos_raw.append(t_genotypes_raw)
         pos_em_cm = pd.Series(allSNPGenos.index, index = allSNPGenos.index).str.replace(":",",").apply(genome.estimated_cM_distance)
@@ -278,15 +286,12 @@ class GenotypeCross(object):
 
 
 def uniq_neighbor(a):
-    sorted_a_count = np.zeros(0, dtype = int)
-    sorted_a = np.zeros(0, dtype = a.dtype)
-    for ef_ix in range(0, len(a)):
+    sorted_a = np.array(a[0], dtype = a.dtype)
+    sorted_a_count = np.array([1], dtype = int)
+    for ef_ix in range(1, len(a)):
         if a[ef_ix] != a[ef_ix-1]:
             sorted_a = np.append(sorted_a, a[ef_ix])
             sorted_a_count = np.append(sorted_a_count, 1)
-        elif np.sum(sorted_a_count) == 0:
-            sorted_a = np.append(sorted_a, a[ef_ix])
-            sorted_a_count[-1] += 1
         elif a[ef_ix] == a[ef_ix-1]:
             sorted_a_count[-1] += 1
     return((sorted_a, sorted_a_count))
