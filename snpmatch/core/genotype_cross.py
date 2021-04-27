@@ -109,14 +109,6 @@ class GenotypeCross(object):
         self.snpsP2 = snpsP2[segSNPsind]
         log.info("done!")
 
-    def _get_common_positions_ixs(self, accs_pos, samples_pos, accs_ix, sample_ix):
-        ## Make sure you have inputs loaded
-        reqAccsPOS = accs_pos[accs_ix]
-        reqTarPos = samples_pos[sample_ix]
-        commonPOS = np.intersect1d( reqAccsPOS, reqTarPos )
-        matchedAccInd = np.array(accs_ix)[ np.where( np.in1d(reqAccsPOS, reqTarPos) )[0] ]
-        matchedTarInd = np.array(sample_ix)[ np.where( np.in1d(reqTarPos, reqAccsPOS) )[0] ]
-        return((matchedAccInd, matchedTarInd))
     
     @staticmethod
     def get_parental_obs(input_gt, snpsP1_gt, snpsP2_gt, polarize = None):
@@ -124,17 +116,17 @@ class GenotypeCross(object):
         ebTarGTs = parsers.parseGT(input_gt)
         ebPolarised = np.zeros(num_snps, dtype=int)
         ### Here I am having 6 observed states. to consider SNPs where either of the parent shows -1 
-        ## ('00', '01', '11', '0', '1', 'NA') 
-        ##    0,    1,    2,   3,   4,    5
-        ebPolarised[:] = 5
-        ebPolarised[np.where(np.equal( ebTarGTs, np.repeat(2, num_snps) ))[0] ] = 1
+        ## ('00', '01', '11',  'NA') 
+        ##    0,    1,    2,    3
+        ebPolarised[:] = 3
         snpsP1_gt_mask = numpy.ma.masked_less(numpy.ma.masked_greater(snpsP1_gt, 1), 0)
         snpsP2_gt_mask = numpy.ma.masked_less(numpy.ma.masked_greater(snpsP2_gt, 1), 0)
         ebPolarised[np.where((np.equal( ebTarGTs, snpsP1_gt_mask )) & (~snpsP2_gt_mask) )[0] ] = 0  ## 00
         ebPolarised[np.where((np.equal( ebTarGTs, snpsP2_gt_mask )) & (~snpsP1_gt_mask) )[0] ] = 2  ## 11
+        ebPolarised[np.where( np.equal( ebTarGTs, np.repeat(2, num_snps)) & (snpsP1_gt_mask != snpsP2_gt_mask ) )[0] ] = 1
         ### additional observation points
-        ebPolarised[np.where((np.equal( ebTarGTs, snpsP1_gt_mask )) & (snpsP2_gt_mask) )[0] ] = 3 ## 0
-        ebPolarised[np.where((np.equal( ebTarGTs, snpsP2_gt_mask )) & (snpsP1_gt_mask) )[0] ] = 4 ## 1
+        #ebPolarised[np.where((np.equal( ebTarGTs, snpsP1_gt_mask )) & (snpsP2_gt_mask) )[0] ] = 3 ## 0
+        #ebPolarised[np.where((np.equal( ebTarGTs, snpsP2_gt_mask )) & (snpsP1_gt_mask) )[0] ] = 4 ## 1
         return(ebPolarised)
     
     @staticmethod
@@ -149,7 +141,7 @@ class GenotypeCross(object):
         from hmmlearn import hmm
         ### The below transition probability is for a intercross, adapted from R/qtl
         states = ('aa', 'ab', 'bb')
-        observations = ('00', '01', '11', '0', '1', 'NA')
+        observations = ('00', '01', '11', 'NA')
         ## assume A. thaliana genome size of 115 Mb 
         ## First calculate the average spacing between the markers
         ## chromosome_size / num_markers 
@@ -162,20 +154,26 @@ class GenotypeCross(object):
             [prob_of_change/2,    1 - prob_of_change, prob_of_change/2],
             [prob_of_change/2,    prob_of_change/2,   1 - prob_of_change]
         ]
-        ## Since there are 6 observed states . we need 3x6 matrix
-        ## ('00', '01', '11', '0', '1', 'NA') 
-        ##    0,    1,    2,   3,   4,    5
+        ## We have 4 observed states, 00, 01, 11 and NA -- need an emmission matrix with shape 3x4
+        # Check Rqtl book page 381. Emission probabilities for intercross given error probability
+        ## Please modify emission probabilies based on your real data. 
+        # 1. Check if you have SNP data on parents. Calculate the probability of observing each states (00, 01, 11 and NA). This would be the row 1 and 3 (symmetric) of emission probability matrix P(O|G = homo) 
+        # 2. Check few individuals that looks like heterozygous on a given chromosome. Estimate the probabilies of each observed state in this region. This would be emission probability for P(O|G = hete)
+        ## Make sure you check the centromeric and pericentromeric regions well.
+        ## increase the probability a little on 01 and 11 given aa as underlying state
+        # Once you have these probabilies -- change the scripts accordingly.
         emission_prob = [ 
-            [0.65,   0.1,  0.01,  0.5,  0.1,  0.33 ], 
-            [0.34,    0.8,  0.34,    0.4,  0.4,  0.34 ],
-            [0.01,  0.1,  0.65,   0.1,  0.5,  0.33 ]
+            [0.163,  0.004,   0.003,   0.83], 
+            [0.06, 0.03,   0.04,  0.87],
+            [0.003,  0.002,   0.114,   0.75]
         ]
-        model = hmm.MultinomialHMM(n_components=3, n_iter = n_iter, algorithm = "viterbi") 
+        model = hmm.MultinomialHMM(n_components=3, n_iter = n_iter, algorithm = "viterbi", init_params='st') 
         model.startprob_ = np.array([0.25, 0.5, 0.25])
         model.transmat_ = pd.DataFrame(transmission_prob)
         model.emissionprob_ = pd.DataFrame(emission_prob)
-        log.info("initialising HMM with transition prob")
-        log.info("%s" % pd.DataFrame(transmission_prob) )
+        log.info("initialising HMM")
+        log.info("transition probability:\n %s" % pd.DataFrame(transmission_prob, index = states, columns = states) )
+        log.info("emission probability:\n %s" % pd.DataFrame(emission_prob, index = states, columns = observations) )
         return(model)
 
     def genotype_cross_hmm(self, input_file):
@@ -188,23 +186,26 @@ class GenotypeCross(object):
         #     samples_ids = samples_ids.str.split("_", expand = True).iloc[:,0]
         samples_gt = snpvcf['gt']
         samples_gt = pd.DataFrame(samples_gt.astype(str))
-        input_chr_names = genome.chrs[pd.Series(snpvcf['chr'], dtype = str).apply(genome.get_chr_ind)]
         g_chr_names = genome.chrs[pd.Series(self.commonSNPsCHR, dtype = str).apply(genome.get_chr_ind)]
-        allSNPGenos = pd.DataFrame( - np.ones((0,samples_gt.shape[1]), dtype=int) )
-        allSNPGenos_raw = pd.DataFrame( - np.ones((0,samples_gt.shape[1]), dtype=int) )
-        t_model = self.init_hmm( samples_gt.shape[0] )
+        ## identify positions which are segregating between parents
+        segregating_ix = self.g.get_common_positions( self.commonSNPsCHR, self.commonSNPsPOS, snpvcf['chr'], snpvcf['pos'] )
+        samples_gt = samples_gt.iloc[segregating_ix[1],:]
+        allSNPGenos_raw = pd.DataFrame( 
+            index = pd.Series(self.commonSNPsCHR[segregating_ix[0]]).astype(str) + ":" + pd.Series(self.commonSNPsPOS[segregating_ix[0]]).astype(str),
+            columns=samples_gt.columns
+        )
+        allSNPGenos = pd.DataFrame( index = allSNPGenos_raw.index, columns = allSNPGenos_raw.columns )
+        t_model = self.init_hmm( allSNPGenos_raw.shape[0] )
         for ec, eclen in zip(genome.chrs_ids, genome.chrlen):
-            reqPOSind =  np.where(g_chr_names == ec)[0]
-            reqTARind = np.where( input_chr_names == ec )[0]
-            ebAccsInds, ebTarInds = self._get_common_positions_ixs(self.commonSNPsPOS, snpvcf['pos'], reqPOSind, reqTARind)
-            t_genotypes = pd.DataFrame( - np.ones((len(ebAccsInds),samples_gt.shape[1]), dtype=int), index = ec + ":" + pd.Series(self.commonSNPsPOS[ebAccsInds]).astype(str) )
-            t_genotypes_raw = pd.DataFrame( - np.ones((len(ebAccsInds),samples_gt.shape[1]), dtype=int), index = ec + ":" + pd.Series(self.commonSNPsPOS[ebAccsInds]).astype(str) )
+            reqChrind = np.where( g_chr_names[segregating_ix[0]] == ec )[0]
             for sample_ix in range(samples_gt.shape[1]):
-                ebin_gt_polarized = self.get_parental_obs(samples_gt.iloc[ebTarInds,sample_ix].values, self.snpsP1[ebAccsInds], self.snpsP2[ebAccsInds])
-                t_genotypes_raw.iloc[:, sample_ix] = ebin_gt_polarized
-                t_genotypes.iloc[:, sample_ix] = t_model.decode(ebin_gt_polarized.reshape((-1, 1)), algorithm='viterbi')[1]
-            allSNPGenos = allSNPGenos.append(t_genotypes)
-            allSNPGenos_raw = allSNPGenos_raw.append(t_genotypes_raw)
+                t_genotypes_raw = self.get_parental_obs(
+                    samples_gt.iloc[reqChrind,sample_ix].values, 
+                    self.snpsP1[segregating_ix[0][reqChrind]], 
+                    self.snpsP2[segregating_ix[0][reqChrind]]
+                )
+                allSNPGenos_raw.iloc[reqChrind,sample_ix] = t_genotypes_raw
+                allSNPGenos.iloc[reqChrind,sample_ix] = t_model.decode(t_genotypes_raw.reshape((-1, 1)),algorithm='viterbi')[1]
         pos_em_cm = pd.Series(allSNPGenos.index, index = allSNPGenos.index).str.replace(":",",").apply(genome.estimated_cM_distance)
         allSNPGenos = allSNPGenos.astype(str).agg(','.join, axis=1)
         to_rqtl_result = pd.Series(allSNPGenos.index, index = allSNPGenos.index )
