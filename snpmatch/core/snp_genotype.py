@@ -124,28 +124,50 @@ class Genotype(object):
             filter_snps_ix: snp indices if given will only be considered 
             return_maf = boolean to return either minor allele or just allel frequency
         """
+        multi_subpop_to_check = False
         if filter_acc_ix is None:
             acc_ix_to_check = np.arange( self.g.snps.shape[1] )
+        elif type(filter_acc_ix) is dict:
+            multi_subpop_to_check = True
         else:
             acc_ix_to_check = np.array( filter_acc_ix )
         if filter_snps_ix is None:
             snps_ix_to_check = np.arange( self.g.snps.shape[0] )
         else:
             snps_ix_to_check = np.array( filter_snps_ix )
-        maf_snps = np.zeros(0, dtype="float")
-        nind_snps = np.zeros(0, dtype="int")
+        if multi_subpop_to_check:
+            maf_snps = {}
+            nind_snps = {}
+            for epop in filter_acc_ix.keys():
+                assert type(filter_acc_ix[epop]) is np.ndarray, "provide numpy arrays in a dictionary when giving subpopulations"
+                maf_snps[epop] = np.zeros(0, dtype="float")
+                nind_snps[epop] = np.zeros(0, dtype="float")
+        else:
+            maf_snps = np.zeros(0, dtype="float")
+            nind_snps = np.zeros(0, dtype="int")
         for t_ix in range(0, snps_ix_to_check.shape[0], chunk_size):
             max_ix = min(snps_ix_to_check.shape[0], t_ix+chunk_size)
-            t_s =  self.g.snps[snps_ix_to_check[t_ix:max_ix],:][:,acc_ix_to_check]
-            t_t = acc_ix_to_check.shape[0] - np.sum(t_s == -1, axis = 1)
-            t_no_1 = 2 * np.sum(t_s == polarize_geno, axis = 1) + np.sum(t_s == 2, axis = 1)
-            t_maf = np.array(t_no_1, dtype=float) / np.multiply(2, t_t)
-            if not return_nind:
-                t_maf[ np.where(t_t <= no_accs_missing_info)[0] ] = np.nan
-            maf_snps = np.append(maf_snps, t_maf )
-            nind_snps = np.append(nind_snps, t_t)
-        if return_maf:
-            maf_snps =  np.minimum( maf_snps, 1 - maf_snps )
+            if multi_subpop_to_check:
+                for epop in filter_acc_ix.keys():
+                    t_s =  self.g.snps[snps_ix_to_check[t_ix:max_ix],:][:,filter_acc_ix[epop]]
+                    t_maf, t_t = calculate_af_snp_mat(
+                        t_s, 
+                        min_informative = no_accs_missing_info, 
+                        polarize_geno = polarize_geno, 
+                        return_maf = return_maf
+                    )
+                    maf_snps[epop] = np.append(maf_snps[epop], t_maf )
+                    nind_snps[epop] = np.append(nind_snps[epop], t_t)
+            else:
+                t_s =  self.g.snps[snps_ix_to_check[t_ix:max_ix],:][:,acc_ix_to_check]
+                t_maf, t_t = calculate_af_snp_mat(
+                    t_s, 
+                    min_informative = no_accs_missing_info, 
+                    polarize_geno = polarize_geno, 
+                    return_maf = return_maf
+                )
+                maf_snps = np.append(maf_snps, t_maf )
+                nind_snps = np.append(nind_snps, t_t)
         if return_nind:
             return( (maf_snps, nind_snps) )
         return(maf_snps)
@@ -263,6 +285,42 @@ class Genotype(object):
             #kin_mat = k_mat / (2 * num_snps) + 0.5
         kin_mat = np.divide(k_mat, total_info_snps)
         return(kin_mat)
+    
+    def calculate_ld(self, snp_ix, accs_ix):
+        ## adapated function of PyGWAS
+        t_snps = self.g.snps[snp_ix,:][accs_ix,:]
+        t_snps[t_snps == -1] = np.nan
+        return( calculate_ld( t_snps.T ) )
+
+def calculate_ld(snps):
+    """
+    Function to calculate r2 for given numpy array of SNPs
+    """
+    #filter non binary snps
+    snps_t = sp.transpose(snps)
+    snps_stand = sp.transpose((snps_t - sp.mean(snps, 1)) / sp.std(snps, 1))
+    r2_values = sp.dot(snps_stand, sp.transpose(snps_stand))
+    r2_values *= (1.0 / snps.shape[1])
+    r2_values **= 2
+    return(r2_values)
+
+def calculate_af_snp_mat(snp_mat, min_informative = 0, polarize_geno = 1, return_maf = True):
+    """
+    Function to calculate allel frequency given a snp matrix
+    rows are SNP positions
+    columns are individuals
+    """
+    ## first calculate the number of informative individuals. remove ones with -1
+    num_alleles = snp_mat.shape[1] - np.sum(snp_mat == -1, axis = 1)
+    ## calculate number of alternative alleles 
+    num_alt = np.multiply(2, np.sum(snp_mat == polarize_geno, axis = 1)) + np.sum(snp_mat == 2, axis = 1)
+    ## get frequencies
+    maf_snps = np.repeat(np.nan, snp_mat.shape[0] )
+    informative_ix = np.where(num_alleles > min_informative)[0]
+    maf_snps[ informative_ix ] = np.array(num_alt[informative_ix], dtype = float) / np.multiply(2, num_alleles[informative_ix])
+    if return_maf:
+        maf_snps = np.minimum( maf_snps, 1 - maf_snps )
+    return( (maf_snps, num_alleles) )
 
 def segregting_snps(t):
     t[t < 0] = np.nan
