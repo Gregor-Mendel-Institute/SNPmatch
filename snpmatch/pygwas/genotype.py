@@ -12,6 +12,19 @@ from abc import ABCMeta, abstractmethod, abstractproperty
 
 log = logging.getLogger(__name__)
 
+def _get_dtype_from_format(format):
+   dtype = 'int8'
+   if format == 'float':
+       dtype = 'float32'
+   elif format == 'nucleotides':
+       dtype ='S1'
+   return(dtype)
+
+def _get_snps_from_row(format,snps):
+    dtype = _get_dtype_from_format(format)
+    if format == 'S1':
+        map(lambda x:nt_decoder[x],snps)
+    return(numpy.array(snps,dtype=dtype))
 
 def parse_genotype_csv_file(csv_file,format='binary', missingVal='NA'):
     log.info('Parsing Genotype file (CSV) %s in format %s' % (csv_file, format))
@@ -21,13 +34,14 @@ def parse_genotype_csv_file(csv_file,format='binary', missingVal='NA'):
         dialect = csv.Sniffer().sniff(f.read(40))
         f.seek(0)
         reader = csv.reader(f, dialect)
-        header = reader.next()
+        header = next(reader)
         if header[0] != 'Chromosome' or (header[1] != 'Positions' and header[1] != 'Position'): 
             raise Exception('First two columns must be in form  Chromosome, Positions')
         dtype = _get_dtype_from_format(format)
-        accessions = map(lambda x: x.strip(),header[2:])
+        # accessions = [ header[ef].strip() for ef in range(2, len(header))]
+        accessions = list(map(lambda x: x.strip(),header[2:]))
         log.info('%s accessions found %s' % (len(accessions),accessions))
-        first_line = reader.next()
+        first_line = next(reader)
         snps = []
         positions = []
         old_chr = first_line[0]

@@ -17,7 +17,8 @@ def die(msg):
 def run_command(command, stdout=""):
     if stdout == "":
         out_cmd = check_output( command, shell=True )
-        return(out_cmd.rstrip().split("\n"))
+        # Output is returned as a byte character
+        return(out_cmd.decode().rstrip().split("\n")) 
     out_cmd = Popen(command, shell=True, stdout = stdout)
     out_cmd.wait()
 
