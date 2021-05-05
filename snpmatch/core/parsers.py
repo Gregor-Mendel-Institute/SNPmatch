@@ -175,7 +175,11 @@ class ParseInputs(object):
         input_df.to_csv( outFile, sep = "\t", index = None, header = False  )
 
 
-def import_vcf_file( inFile, logDebug, samples_to_load = [0]):
+def import_vcf_file( inFile, logDebug = False, samples_to_load = [0], add_fields = None):
+    """
+    Function to read a VCF file and load required data. Wrapper for allel.read_vcf
+    add_field = array with required names that needed to be loaded
+    """
     if logDebug:
         vcf = allel.read_vcf(inFile, samples = samples_to_load, fields = '*')
     else:
@@ -200,6 +204,12 @@ def import_vcf_file( inFile, logDebug, samples_to_load = [0]):
         snp_inputs['dp'] = vcf['variants/DP']
     else:
         snp_inputs['dp'] = np.repeat("NA", snp_inputs['pos'].shape[0])
+    if add_fields is not None:
+        for ef in add_fields:
+            if ef in sorted(vcf.keys()):
+                snp_inputs[ef] = vcf[ef]
+            else:
+                log.warn( "Field %s is not present in the VCF file" % ef )
     return(snp_inputs)
 
 
