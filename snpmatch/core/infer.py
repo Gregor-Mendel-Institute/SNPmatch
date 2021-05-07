@@ -118,10 +118,11 @@ class IdentifyAncestryF2individual(object):
         chromosome_size,
         num_markers,
         recomb_rate = 3.5,  ### in cM/Mb
-        conf_p1 = 0.999,
-        conf_p2 = 0.999, 
-        base_error = 0.0001, 
-        avg_depth = 1.5, 
+        error_p1 = 0.00001,
+        error_p2 = 0.00001, 
+        base_error = 0.01, 
+        avg_depth = 1.5,
+        n_iter = 1000
     ):
         self.ancestry = ['AA', 'AB', 'BB']
         self.geno_parents = ['00', '01', '11']
@@ -130,18 +131,20 @@ class IdentifyAncestryF2individual(object):
         self.params['num_markers'] = num_markers
         self.params['chromosome_size'] = chromosome_size
         self.params['recomb_rate'] = recomb_rate
-        self.params['conf_p1'] = conf_p1
-        self.params['conf_p2'] = conf_p2
+        self.params['error_p1'] = error_p1
+        self.params['error_p2'] = error_p2
         self.params['base_error'] = base_error
         self.params['avg_depth'] = avg_depth
-        self.prob_g_given_z = self._prob_g_given_Z(self.params['conf_p1'], self.params['conf_p2'] )
+        self.params['n_iter'] = n_iter
+        self.prob_g_given_z = self._prob_g_given_Z(self.params['error_p1'], self.params['error_p2'] )
         self.prob_x_given_g = self._prob_x_given_G(self.params['base_error'], self.params['avg_depth'] )
         self.init_prob = [0.25, 0.5, 0.25] ### F2 individual with -- Mendelian segregation
         print("init probabilites:\n %s" % pd.Series(self.init_prob, index = self.ancestry) )
         self.transition_prob = self._transition_prob(self.params['chromosome_size'], self.params['num_markers'], self.params['recomb_rate'])
         print("transition probability:\n %s" % self.transition_prob )
-        self.emission_prob =  pd.DataFrame(np.dot(x.prob_g_given_z.values, x.prob_x_given_g.values), index = self.ancestry, columns = self.observed_states)
+        self.emission_prob =  pd.DataFrame(np.dot(self.prob_g_given_z.values, self.prob_x_given_g.values), index = self.ancestry, columns = self.observed_states)
         print("emission probability:\n %s" % self.emission_prob )
+        self.model = self._model( n_iter = self.params['n_iter'] )
 
     def _prob_g_given_Z(self, error_p1, error_p2):
         ## Adapted from Andolfatto et al.
@@ -157,7 +160,7 @@ class IdentifyAncestryF2individual(object):
     def _prob_x_given_G(self, base_error, avg_depth):
         req_prob = [
             [(1 - base_error)**avg_depth, 1 - base_error**avg_depth - (1 - base_error)**avg_depth, base_error**avg_depth, 0.5],
-            [0.5**avg_depth, 1 - 2 * (0.5**avg_depth),0.5**avg_depth,0.5],
+            [(0.5 * (1 - base_error))**avg_depth, 1 - 2 * ((0.5 * (1 - base_error))**avg_depth),(0.5 * (1 - base_error))**avg_depth,0.5],
             [base_error**avg_depth, 1 - base_error**avg_depth - (1 - base_error)**avg_depth, (1-base_error)**avg_depth, 0.5]
         ]
         return( pd.DataFrame( req_prob, index = self.geno_parents, columns = self.observed_states )  )
@@ -171,3 +174,11 @@ class IdentifyAncestryF2individual(object):
                 [ri**2,   2 * ri * (1 - ri), (1 - ri)**2]
         ]
         return( pd.DataFrame( transition_prob, index = self.ancestry, columns = self.ancestry ) )
+    
+    def _model(self, n_iter = 1000):
+        log.info("initialising HMM")
+        model = hmm.MultinomialHMM(n_components=3, n_iter = n_iter, algorithm = "viterbi", init_params='ste') 
+        model.startprob_ = self.init_prob
+        model.transmat_ = self.transition_prob
+        model.emissionprob_ = self.emission_prob
+        return(model)
