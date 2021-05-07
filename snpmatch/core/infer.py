@@ -6,6 +6,7 @@ from glob import glob
 import itertools
 import os.path
 from . import parsers
+from hmmlearn import hmm
 
 
 
@@ -19,7 +20,7 @@ class IdentifyStrechesofHeterozygosity(object):
         avg_depth = 1.5, 
         delta_het_parents = 0.99,
         avg_sites_segregating = 0.01, 
-        base_error = 0.01, 
+        base_error = 0.0001, 
         recomb_rate = 3.3, 
         n_iter = 1000
     ):
@@ -54,7 +55,6 @@ class IdentifyStrechesofHeterozygosity(object):
             recomb_rate: assumed rate of recombination (cM per Mb)
             genome_size: size of chromosome in Mb
         """
-        from hmmlearn import hmm
         ### There are two hidden states
         log.info("Initialising HMM")
         states = ('aa', 'ab')
@@ -66,10 +66,11 @@ class IdentifyStrechesofHeterozygosity(object):
         ## What is the transition probabilities? 
         ## First, I am doing it for F2 cross
         init_prob = [0.5, 0.5]
-        prob_of_change = ( self.params['chromosome_size'] / self.params['num_markers'] ) * ( 1 / (100 * self.params['recomb_rate'])  )
+        ri = (float(self.params['chromosome_size']) / self.params['num_markers']) * self.params['recomb_rate'] / 100
+        ## assuming a diploid
         transition_prob = [
-                [1 - prob_of_change,  prob_of_change],
-                [prob_of_change,  1 - prob_of_change]
+                [(1 - ri)**2 + ri**2,   2 * ri * (1 - ri)   ],
+                [2 * ri * (1 - ri),     (1 - ri)**2 + ri**2 ]
         ]
         ## Emission probability
         # average_depth
@@ -78,7 +79,7 @@ class IdentifyStrechesofHeterozygosity(object):
         ## Z -- underlying ancestry -- either AA or AB
         ## G = genotype at a given locus -- aa or ab -- depends on whether parents are segregating
         ## X = observed states (00, 01)
-        p_homo_given_gaa = (1 - self.params['base_error']) ** self.params['avg_depth']
+        p_homo_given_gaa = ((1 - self.params['base_error']) ** self.params['avg_depth']) + self.params['base_error']**self.params['avg_depth']
         p_homo_given_gab = 2 * (0.5 ** self.params['avg_depth'])
         ## What fraction of sites are heterozygoues in parental genomes. 
         ## delta_het_parents
@@ -89,8 +90,8 @@ class IdentifyStrechesofHeterozygosity(object):
             [p_homo_given_ZAA,  1 - p_homo_given_ZAA, 0.5],
             [p_homo_given_ZAB, 1 - p_homo_given_ZAB, 0.5]
         ]
-        print("transmission prob:\n %s" % pd.DataFrame(transition_prob) )
-        print("emission prob:\n %s" % pd.DataFrame(emission_prob) )
+        print("transition probability:\n %s" % pd.DataFrame(transition_prob) )
+        print("emission probability:\n %s" % pd.DataFrame(emission_prob) )
         model = hmm.MultinomialHMM(n_components=2, n_iter = self.params['n_iter'], algorithm = "viterbi", init_params='st') 
         model.startprob_ = np.array(init_prob)
         model.transmat_ = pd.DataFrame(transition_prob)
@@ -108,3 +109,65 @@ class IdentifyStrechesofHeterozygosity(object):
         self._obs = self._input_obs( self.sample_gt )
         t_genotypes = self.model.decode( self._obs.reshape((-1, 1)) )
         return(t_genotypes)
+
+
+
+class IdentifyAncestryF2individual(object):
+
+    def __init__(self, 
+        chromosome_size,
+        num_markers,
+        recomb_rate = 3.5,  ### in cM/Mb
+        conf_p1 = 0.999,
+        conf_p2 = 0.999, 
+        base_error = 0.0001, 
+        avg_depth = 1.5, 
+    ):
+        self.ancestry = ['AA', 'AB', 'BB']
+        self.geno_parents = ['00', '01', '11']
+        self.observed_states = ['00', '01', '11', 'NA']
+        self.params = {}
+        self.params['num_markers'] = num_markers
+        self.params['chromosome_size'] = chromosome_size
+        self.params['recomb_rate'] = recomb_rate
+        self.params['conf_p1'] = conf_p1
+        self.params['conf_p2'] = conf_p2
+        self.params['base_error'] = base_error
+        self.params['avg_depth'] = avg_depth
+        self.prob_g_given_z = self._prob_g_given_Z(self.params['conf_p1'], self.params['conf_p2'] )
+        self.prob_x_given_g = self._prob_x_given_G(self.params['base_error'], self.params['avg_depth'] )
+        self.init_prob = [0.25, 0.5, 0.25] ### F2 individual with -- Mendelian segregation
+        print("init probabilites:\n %s" % pd.Series(self.init_prob, index = self.ancestry) )
+        self.transition_prob = self._transition_prob(self.params['chromosome_size'], self.params['num_markers'], self.params['recomb_rate'])
+        print("transition probability:\n %s" % self.transition_prob )
+        self.emission_prob =  pd.DataFrame(np.dot(x.prob_g_given_z.values, x.prob_x_given_g.values), index = self.ancestry, columns = self.observed_states)
+        print("emission probability:\n %s" % self.emission_prob )
+
+    def _prob_g_given_Z(self, error_p1, error_p2):
+        ## Adapted from Andolfatto et al.
+        conf_p1 = 1 - error_p1
+        conf_p2 = 1 - error_p2
+        req_prob = [
+            [conf_p1**2, 2 * conf_p1 * error_p1, error_p1**2],
+            [conf_p1 * error_p2, (conf_p1 * conf_p2)  + (error_p1 * error_p2), conf_p2 * error_p1],
+            [error_p2**2, 2 * conf_p2 * error_p2, conf_p2**2]
+        ]
+        return( pd.DataFrame( req_prob, index = self.ancestry, columns = self.geno_parents ) )
+    
+    def _prob_x_given_G(self, base_error, avg_depth):
+        req_prob = [
+            [(1 - base_error)**avg_depth, 1 - base_error**avg_depth - (1 - base_error)**avg_depth, base_error**avg_depth, 0.5],
+            [0.5**avg_depth, 1 - 2 * (0.5**avg_depth),0.5**avg_depth,0.5],
+            [base_error**avg_depth, 1 - base_error**avg_depth - (1 - base_error)**avg_depth, (1-base_error)**avg_depth, 0.5]
+        ]
+        return( pd.DataFrame( req_prob, index = self.geno_parents, columns = self.observed_states )  )
+
+    def _transition_prob(self, chromosome_size, num_markers, recomb_rate):
+        ri = (float(chromosome_size) / num_markers) * recomb_rate / 100
+        ## assuming a diploid
+        transition_prob = [
+                [(1 - ri)**2,   2 * ri * (1 - ri), ri**2],
+                [ri * (1 - ri),     (1 - ri)**2 + ri**2, ri * (1 - ri)],
+                [ri**2,   2 * ri * (1 - ri), (1 - ri)**2]
+        ]
+        return( pd.DataFrame( transition_prob, index = self.ancestry, columns = self.ancestry ) )
