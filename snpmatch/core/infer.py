@@ -5,8 +5,8 @@ import logging
 from glob import glob
 import itertools
 import os.path
-from . import parsers
 from hmmlearn import hmm
+import numpy.ma
 
 
 
@@ -15,7 +15,7 @@ log = logging.getLogger(__name__)
 class IdentifyStrechesofHeterozygosity(object):
 
     def __init__(self,
-        sample_gt, 
+        num_markers, 
         chromosome_size, 
         avg_depth = 1.5, 
         delta_het_parents = 0.99,
@@ -25,9 +25,8 @@ class IdentifyStrechesofHeterozygosity(object):
         n_iter = 1000
     ):
         #  
-        self.sample_gt = parsers.parseGT( sample_gt )
         self.params = {}
-        self.params['num_markers'] = sample_gt.shape[0]
+        self.params['num_markers'] = num_markers
         self.params['avg_depth'] = avg_depth
         ### fraction of sites parental genomes are heterozygous
         self.params['delta_het_parents'] = delta_het_parents 
@@ -98,17 +97,13 @@ class IdentifyStrechesofHeterozygosity(object):
         model.emissionprob_ = pd.DataFrame(emission_prob)
         return(model)
 
-    def _input_obs( self, sample_gt ):
-        t_obs = np.array(sample_gt)
+    @staticmethod
+    def snp_to_observations(input_snps):
+        t_obs = np.array(input_snps)
         t_obs[t_obs == 1] = 0
         t_obs[t_obs == 2] = 1
         t_obs[t_obs == -1] = 2
         return(t_obs)
-
-    def hmm_decode( self ):
-        self._obs = self._input_obs( self.sample_gt )
-        t_genotypes = self.model.decode( self._obs.reshape((-1, 1)) )
-        return(t_genotypes)
 
 
 
@@ -182,3 +177,44 @@ class IdentifyAncestryF2individual(object):
         model.transmat_ = self.transition_prob
         model.emissionprob_ = self.emission_prob
         return(model)
+
+    @staticmethod
+    def snp_to_observations(input_snps, snpsP1_gt, snpsP2_gt, polarize = None):
+        # input_snps = parsers.parseGT(input_gt)
+        num_snps = len(input_snps)
+        ### Here I have 4 observed states
+        ## ('00', '01', '11',  'NA') ### removed '0', '1',
+        ##    0,    1,    2,   3  ###  4,    5
+        ebPolarised = np.repeat(3, num_snps)
+        input_snps_mask = numpy.ma.masked_less(input_snps, 0)
+        snpsP1_gt_mask = numpy.ma.masked_less(numpy.ma.masked_greater(snpsP1_gt, 1), 0)
+        snpsP2_gt_mask = numpy.ma.masked_less(numpy.ma.masked_greater(snpsP2_gt, 1), 0)
+        if polarize == "p1":
+            ebPolarised[np.where((np.equal( input_snps_mask, snpsP1_gt_mask )) )[0] ] = 0  ## 00
+            ebPolarised[np.where((~np.equal( input_snps_mask, snpsP1_gt_mask )) & (input_snps_mask < 2) )[0] ] = 2  ## 11
+        elif polarize == "p2":
+            ebPolarised[np.where((np.equal( input_snps_mask, snpsP2_gt_mask )) )[0] ] = 2  ## 00
+            ebPolarised[np.where((~np.equal( input_snps_mask, snpsP2_gt_mask )) & ( input_snps_mask < 2 ) )[0] ] = 0  ## 11
+        else:
+            ebPolarised[np.where((np.equal( input_snps_mask, snpsP1_gt_mask )) )[0] ] = 0  ## 00
+            ebPolarised[np.where((np.equal( input_snps_mask, snpsP2_gt_mask )) )[0] ] = 2  ## 11
+        ebPolarised[np.where( np.equal( input_snps_mask, np.repeat(2, num_snps)) | (snpsP1_gt_mask != snpsP2_gt_mask ) )[0] ] = 1
+        return(ebPolarised)
+
+
+def uniq_neighbor(a):
+    """
+    Function to club nearby positions and give counts
+    useful in getting the recombination break points
+    input:
+        numpy array (1d) for observations.
+    """
+    sorted_a = np.array(a[0], dtype = a.dtype)
+    sorted_a_count = np.array([1], dtype = int)
+    for ef_ix in range(1, len(a)):
+        if a[ef_ix] != a[ef_ix-1]:
+            sorted_a = np.append(sorted_a, a[ef_ix])
+            sorted_a_count = np.append(sorted_a_count, 1)
+        elif a[ef_ix] == a[ef_ix-1]:
+            sorted_a_count[-1] += 1
+    return((sorted_a, sorted_a_count))
