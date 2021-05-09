@@ -198,7 +198,7 @@ class IdentifyAncestryF2individual(object):
         else:
             ebPolarised[np.where((np.equal( input_snps_mask, snpsP1_gt_mask )) )[0] ] = 0  ## 00
             ebPolarised[np.where((np.equal( input_snps_mask, snpsP2_gt_mask )) )[0] ] = 2  ## 11
-        ebPolarised[np.where( np.equal( input_snps_mask, np.repeat(2, num_snps)) | (snpsP1_gt_mask != snpsP2_gt_mask ) )[0] ] = 1
+        ebPolarised[np.where( np.equal( input_snps_mask, np.repeat(2, num_snps)) & (snpsP1_gt_mask != snpsP2_gt_mask ) )[0] ] = 1
         return(ebPolarised)
 
 
