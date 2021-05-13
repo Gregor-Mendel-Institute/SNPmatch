@@ -18,7 +18,7 @@ class IdentifyStrechesofHeterozygosity(object):
         num_markers, 
         chromosome_size, 
         avg_depth = 1.5, 
-        delta_het_parents = 0.99,
+        fraction_homo_parents = 0.99,
         avg_sites_segregating = 0.01, 
         base_error = 0.0001, 
         recomb_rate = 3.3, 
@@ -29,7 +29,7 @@ class IdentifyStrechesofHeterozygosity(object):
         self.params['num_markers'] = num_markers
         self.params['avg_depth'] = avg_depth
         ### fraction of sites parental genomes are heterozygous
-        self.params['delta_het_parents'] = delta_het_parents 
+        self.params['delta_het_parents'] = fraction_homo_parents 
         ### fraction of sites which are segregating between parents
         self.params['avg_sites_segregating'] = avg_sites_segregating 
         ### sequencing error rate
