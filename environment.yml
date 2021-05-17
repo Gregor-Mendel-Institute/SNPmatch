@@ -1,4 +1,4 @@
-name: snpmatch-5.0
+name: snpmatch
 channels:
     - bioconda
     - anaconda
@@ -6,6 +6,7 @@ channels:
     - defaults
 dependencies:
     - python=3.7.6
+    - pip=21.0.1
     - numpy=1.20
     - scipy=1.6.2
     - pandas=1.2.3
