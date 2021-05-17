@@ -5,5 +5,5 @@ RUN conda update -n base -c defaults conda
 RUN apt-get update && apt-get install -y procps 
 COPY environment.yml /
 RUN mkdir /lustre
-RUN conda env create -f /environment.yml && conda clean -a
+RUN conda env create --quiet -f /environment.yml && conda clean -a
 ENV PATH /opt/conda/envs/snpmatch/bin:$PATH

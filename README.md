@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/66452583.svg)](https://zenodo.org/badge/latestdoi/66452583)
+
 # SNPmatch
 
 SNPmatch is a Python toolkit which can be used to genotype a sample from as-low-as as 4000 markers from the database lines. SNPmatch can genotype samples efficiently and economically using a simple likelihood approach.
