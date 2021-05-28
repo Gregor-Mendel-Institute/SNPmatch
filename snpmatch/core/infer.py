@@ -134,9 +134,9 @@ class IdentifyStrechesofHeterozygosity(object):
             [1 - self.params['avg_sites_segregating'], self.params['avg_sites_segregating']],
         ])
         emission_prob = np.dot(prob_g_given_Z, prob_x_given_g)
-        print("transition probability:\n %s" % pd.DataFrame(transition_prob,index = states, columns = states) )
+        log.info("transition probability:\n %s" % pd.DataFrame(transition_prob,index = states, columns = states) )
         self.transition_prob = np.array(transition_prob)
-        print("emission probability:\n %s" % pd.DataFrame(emission_prob, index = states, columns = observations) )
+        log.info("emission probability:\n %s" % pd.DataFrame(emission_prob, index = states, columns = observations) )
         self.emission_prob = np.array(emission_prob)
         
     def viterbi(self, input_snps):
@@ -167,10 +167,11 @@ class IdentifyAncestryF2individual(object):
         base_error = 0.01, 
         sample_depth = 1.5
     ):
+        log.info("initialising HMM")
         self.ancestry = ['AA', 'AB', 'BB']
         self.geno_parents = ['00', '01', '11']
         self.observed_states = ['00', '01', '11', 'NA']
-        print( "observations: %s" % self.observed_states )
+        log.info( "observations: %s" % self.observed_states )
         self.params = {}
         assert snps_p1.shape[0] == snps_p2.shape[0], "both the SNP arrays for two parents should be of same size"
         self.params['num_markers'] = snps_p1.shape[0]
@@ -186,10 +187,10 @@ class IdentifyAncestryF2individual(object):
         else:
             self.params['sample_depth'] = sample_depth
         self.init_prob = [0.25, 0.5, 0.25] ### F2 individual with -- Mendelian segregation
-        print("init probabilites:\n %s" % pd.Series(self.init_prob, index = self.ancestry) )
+        log.info("init probabilites:\n %s" % pd.Series(self.init_prob, index = self.ancestry) )
         self.transition_prob = self._transition_prob(self.params['chromosome_size'], self.params['num_markers'], self.params['recomb_rate'])
-        print("transition probability:\n %s" % self.transition_prob )
-        print("calculating emissions")
+        log.info("transition probability:\n %s" % self.transition_prob )
+        log.info("calculating emissions")
         self.emission_prob = self._get_emissions(self.params['error_p1'], self.params['error_p2'], self.params['snps_p1'], self.params['snps_p2'], self.params['base_error'], self.params['sample_depth'])
 
     def _get_emissions(self, error_p1, error_p2, snps_p1, snps_p2, base_error, sample_depth):
@@ -248,13 +249,14 @@ class IdentifyAncestryF2individual(object):
         #  (avg_depth,0) qb**avg_depth + (avg_depth,1) (qb**(avg_depth-1) * qbe) + avg_depth C2 (qb**(avg_depth-2) * qbe**2)
         p_01_given_g01 = 1 - 2 * (0.5**avg_depth)
         p_00_given_g01 = (1 - p_01_given_g01)/2
-        p_00_given_g01 = (1 - p_01_given_g01)/2
         prob_x_given_g = [
             [p_00_given_g00, p_01_given_g00, p_11_given_g00, 1],
             [p_00_given_g01, p_01_given_g01, p_00_given_g01, 1],
             [p_11_given_g00, p_01_given_g00, p_00_given_g00, 1]
         ]
-        return( pd.DataFrame(np.dot(np.array(prob_g_given_Z), np.array(prob_x_given_g)), index = self.ancestry, columns = self.observed_states) ) 
+        ## you need to do absolute as with depth of 0, you get probabilites as -1
+        prob_x_given_g = np.abs(np.array(prob_x_given_g)) 
+        return( pd.DataFrame(np.dot(np.array(prob_g_given_Z), prob_x_given_g), index = self.ancestry, columns = self.observed_states) ) 
 
     def _transition_prob(self, chromosome_size, num_markers, recomb_rate):
         ri = (float(chromosome_size) / num_markers) * recomb_rate / 100
@@ -267,7 +269,6 @@ class IdentifyAncestryF2individual(object):
         return( pd.DataFrame( transition_prob, index = self.ancestry, columns = self.ancestry ) )
     
     def viterbi(self, input_snps):
-        log.info("initialising HMM")
         obs = self.snp_to_observations( input_snps )
         model = viterbi( self.init_prob, self.transition_prob.values, self.emission_prob, obs )
         return(model)
