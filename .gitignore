@@ -1,0 +1,9 @@
+*pyc
+sample_files/*json
+*npz
+build/
+dist/
+SNPmatch.egg-info/
+.cache
+__pycache__
+.pytest*
