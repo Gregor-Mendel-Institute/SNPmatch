@@ -58,11 +58,20 @@ def viterbi(init_prob, trans_mat, emission_mat, obs):
     return((S, omega))
 
 class IdentifyStrechesofHeterozygosity(object):
+    """
+    HMM to identify streches of homozygosity in an intercross
+    ## currently: observations should only be in segregating SNPs
+    Input: 
+        number of markers
+        avg_sites_segregating:  Average number of given sites that would be segregating between parents
+        recomb_rate: assumed rate of recombination (cM per Mb)
+        genome_size: size of chromosome in Mb
+    """
 
     def __init__(self,
         num_markers, 
         chromosome_size, 
-        avg_depth = 1.5, 
+        sample_depth = 1.5, 
         fraction_homo_parents = 0.99,
         avg_sites_segregating = 0.01, 
         base_error = 0.0001, 
@@ -71,9 +80,12 @@ class IdentifyStrechesofHeterozygosity(object):
         #  
         self.params = {}
         self.params['num_markers'] = num_markers
-        self.params['avg_depth'] = avg_depth
-        ### fraction of sites parental genomes are heterozygous
-        self.params['delta_het_parents'] = fraction_homo_parents 
+        if isinstance(sample_depth, (int, float)):
+            self.params['sample_depth'] = np.repeat(sample_depth, self.params['num_markers'])
+        else:
+            self.params['sample_depth'] = sample_depth
+        ### fraction of sites parental genomes are homozygous
+        self.params['fraction_homo_parents'] = fraction_homo_parents 
         ### fraction of sites which are segregating between parents
         self.params['avg_sites_segregating'] = avg_sites_segregating 
         ### sequencing error rate
@@ -83,36 +95,31 @@ class IdentifyStrechesofHeterozygosity(object):
         ## recombination rate
         self.params['recomb_rate'] = recomb_rate
         ## number of iterations
-        self._init_hmm_streches_of_het()
-
-
-    def _init_hmm_streches_of_het(self):
-        """
-        HMM to identify streches of homozygosity in an intercross
-        ## currently: observations should only be in segregating SNPs
-        Input: 
-            number of markers
-            avg_sites_segregating:  Average number of given sites that would be segregating between parents
-            recomb_rate: assumed rate of recombination (cM per Mb)
-            genome_size: size of chromosome in Mb
-        """
-        ### There are two hidden states
         log.info("Initialising HMM")
-        states = ('HOMO', 'HET')
+        ### There are two hidden states
+        self.hidden_states = ('HOMO', 'HET')
         ## you observe 
-        observations = ('00||11', '01', 'NA')
+        self.observed_states = ('00||11', '01', 'NA')
+        ## First, I am doing it for F2 cross
+        self.init_prob = [0.5, 0.5]
+        self.transition_prob = self.calc_transition_prob(self.params['num_markers'], self.params['recomb_rate'], self.params['chromosome_size'])
+        log.info("transition probability:\n %s" % self.transition_prob )
+        log.info("calculating emissions")
+        self.emission_prob = self.calc_emissions(self.params['base_error'], self.params['sample_depth'], self.params['fraction_homo_parents'], self.params['avg_sites_segregating'])
+
+    def calc_transition_prob(self, num_markers, recomb_rate, chromosome_size):
+        ri = (float(chromosome_size) / num_markers) * recomb_rate / 100
+        ## assuming a diploid
+        transition_prob = np.array([
+                [(1 - ri)**2 + ri**2,   2 * ri * (1 - ri)   ],
+                [2 * ri * (1 - ri),     (1 - ri)**2 + ri**2 ]
+        ])
+        return( pd.DataFrame( transition_prob, index = self.hidden_states, columns = self.hidden_states ) )
+
+    def calc_emissions(self, base_error, sample_depth, fraction_homo_parents, avg_sites_segregating):
         ## if a site is called Homo -- all the reads mapped to it are the same
         ## het if atleast one read is different (default GATK/bcftools callers does that)
         ##_____
-        ## What is the transition probabilities? 
-        ## First, I am doing it for F2 cross
-        self.init_prob = [0.5, 0.5]
-        ri = (float(self.params['chromosome_size']) / self.params['num_markers']) * self.params['recomb_rate'] / 100
-        ## assuming a diploid
-        transition_prob = [
-                [(1 - ri)**2 + ri**2,   2 * ri * (1 - ri)   ],
-                [2 * ri * (1 - ri),     (1 - ri)**2 + ri**2 ]
-        ]
         ## Emission probability
         # average_depth
         # base_error 
@@ -120,29 +127,32 @@ class IdentifyStrechesofHeterozygosity(object):
         ## Z -- underlying ancestry -- either AA or AB
         ## G = genotype at a given locus -- 00 or 01 -- depends on whether parents are segregating
         ## X = observed states (00, 01)
-        p_homo_given_gaa = ((1 - self.params['base_error']) ** self.params['avg_depth']) + self.params['base_error']**self.params['avg_depth']
-        p_homo_given_gab = 2 * (0.5 ** self.params['avg_depth'])
-        prob_x_given_g = np.array([
-            [p_homo_given_gaa, 1 - p_homo_given_gaa, 1],
-            [p_homo_given_gab, 1 - p_homo_given_gab, 1]
-        ])
+        emission_prob = np.zeros( (len(self.hidden_states), len(self.observed_states), len(sample_depth)) )
         ## What fraction of sites are heterozygoues in parental genomes. 
-        ## delta_het_parents
+        ## fraction_homo_parents
         ## Rows are Z -- AA, AB
         prob_g_given_Z = np.array([
-            [self.params['delta_het_parents'], 1 - self.params['delta_het_parents']],
-            [1 - self.params['avg_sites_segregating'], self.params['avg_sites_segregating']],
+            [fraction_homo_parents, 1 - fraction_homo_parents],
+            [1 - avg_sites_segregating, avg_sites_segregating],
         ])
-        emission_prob = np.dot(prob_g_given_Z, prob_x_given_g)
-        log.info("transition probability:\n %s" % pd.DataFrame(transition_prob,index = states, columns = states) )
-        self.transition_prob = np.array(transition_prob)
-        log.info("emission probability:\n %s" % pd.DataFrame(emission_prob, index = states, columns = observations) )
-        self.emission_prob = np.array(emission_prob)
+        iter_depth = np.unique( sample_depth ) 
+        for ef_depth in iter_depth: 
+            req_snp_ix = np.where( sample_depth == ef_depth )[0]
+            p_homo_given_gaa = ((1 - base_error) ** ef_depth) + base_error**ef_depth
+            p_homo_given_gab = 2 * (0.5**ef_depth)
+            t_prob_x_given_g = np.array([
+                [p_homo_given_gaa, 1 - p_homo_given_gaa, 1],
+                [p_homo_given_gab, 1 - p_homo_given_gab, 1]
+            ])
+            
+            ef_emission = np.dot(prob_g_given_Z, np.abs(t_prob_x_given_g) )
+            emission_prob[:,:,req_snp_ix] = np.tile( ef_emission.T, (len(req_snp_ix), 1, 1) ).T
+        return( np.array( emission_prob ) )
         
     def viterbi(self, input_snps):
         log.info("initialising HMM")
         obs = self.snp_to_observations( input_snps )
-        model = viterbi( self.init_prob, self.transition_prob, self.emission_prob, obs )
+        model = viterbi( self.init_prob, self.transition_prob.values, self.emission_prob, obs )
         return(model)
 
     @staticmethod
