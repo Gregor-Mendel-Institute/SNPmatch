@@ -7,3 +7,4 @@ SNPmatch.egg-info/
 .cache
 __pycache__
 .pytest*
+.ipynb_checkpoints
