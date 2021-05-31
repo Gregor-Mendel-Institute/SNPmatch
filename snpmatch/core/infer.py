@@ -81,9 +81,9 @@ class IdentifyStrechesofHeterozygosity(object):
         self.params = {}
         self.params['num_markers'] = num_markers
         if isinstance(sample_depth, (int, float)):
-            self.params['sample_depth'] = np.repeat(sample_depth, self.params['num_markers'])
+            self.params['sample_depth'] = np.repeat(np.rint(sample_depth), self.params['num_markers'])
         else:
-            self.params['sample_depth'] = sample_depth
+            self.params['sample_depth'] = np.array(np.rint(sample_depth))
         ### fraction of sites parental genomes are homozygous
         self.params['fraction_homo_parents'] = fraction_homo_parents 
         ### fraction of sites which are segregating between parents
@@ -136,7 +136,7 @@ class IdentifyStrechesofHeterozygosity(object):
             [1 - avg_sites_segregating, avg_sites_segregating],
         ])
         iter_depth = np.unique( sample_depth ) 
-        for ef_depth in iter_depth: 
+        for ef_depth in iter_depth:
             req_snp_ix = np.where( sample_depth == ef_depth )[0]
             p_homo_given_gaa = ((1 - base_error) ** ef_depth) + base_error**ef_depth
             p_homo_given_gab = 2 * (0.5**ef_depth)
@@ -144,7 +144,12 @@ class IdentifyStrechesofHeterozygosity(object):
                 [p_homo_given_gaa, 1 - p_homo_given_gaa, 1],
                 [p_homo_given_gab, 1 - p_homo_given_gab, 1]
             ])
-            
+
+            if ef_depth <= 0:
+                t_prob_x_given_g = np.array([
+                    [1, 1, 1],
+                    [1, 1, 1]
+                ], dtype = float )
             ef_emission = np.dot(prob_g_given_Z, np.abs(t_prob_x_given_g) )
             emission_prob[:,:,req_snp_ix] = np.tile( ef_emission.T, (len(req_snp_ix), 1, 1) ).T
         return( np.array( emission_prob ) )
@@ -233,6 +238,7 @@ class IdentifyAncestryF2individual(object):
         avg_depth: depth for the sample at a given position
         """
         ## Adapted from Andolfatto et al.
+        avg_depth = np.rint(avg_depth)
         conf_p1 = 1 - error_p1
         conf_p2 = 1 - error_p2
         prob_00_given_aa = (conf_p1**2 * (1 - af_p1)) + (error_p1**2 * af_p1)
@@ -264,6 +270,12 @@ class IdentifyAncestryF2individual(object):
             [p_00_given_g01, p_01_given_g01, p_00_given_g01, 1],
             [p_11_given_g00, p_01_given_g00, p_00_given_g00, 1]
         ]
+        if avg_depth <= 0:
+            prob_x_given_g = np.array([
+                [1, 1, 1, 1],
+                [1, 1, 1, 1],
+                [1, 1, 1, 1]
+            ], dtype = float )
         ## you need to do absolute as with depth of 0, you get probabilites as -1
         prob_x_given_g = np.abs(np.array(prob_x_given_g)) 
         return( pd.DataFrame(np.dot(np.array(prob_g_given_Z), prob_x_given_g), index = self.ancestry, columns = self.observed_states) ) 
