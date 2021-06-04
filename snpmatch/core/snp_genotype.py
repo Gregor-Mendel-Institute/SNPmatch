@@ -1,4 +1,5 @@
 import numpy as np
+import numpy.ma
 import scipy as sp
 import pandas as pd
 import logging
@@ -291,6 +292,42 @@ class Genotype(object):
         t_snps = self.g.snps[snp_ix,:][accs_ix,:]
         t_snps[t_snps == -1] = np.nan
         return( calculate_ld( t_snps.T ) )
+    
+    def mismatch_between_accs( self, acc_x_ix, acc_y_ix, bin_length = None, genome_class = None):
+        """
+        Function to get the mismatch between a pair
+        input:
+        acc_x_ix -- index for accession x
+        acc_y_ix -- index for accession y
+        
+        output:
+        numpy binary array with shape (num_snps,)
+        has NA if either x or y has NA
+        1 if there is match between x and y
+        0 if there is mimatch 
+        """
+        snps_x = self.g_acc.snps[:,acc_x_ix]
+        snps_y = self.g_acc.snps[:,acc_y_ix]
+        mismatch_xy = np.zeros( snps_x.shape[0] )
+        snps_x = numpy.ma.masked_less(numpy.ma.masked_greater(snps_x, 2), 0)
+        snps_y = numpy.ma.masked_less(numpy.ma.masked_greater(snps_y, 2), 0)
+        mismatch_xy[np.where( snps_x == snps_y )[0]] = 1
+        mismatch_xy[np.where(snps_x.mask | snps_y.mask)[0] ] = np.nan
+        if bin_length is None:
+            return(mismatch_xy)
+        assert type(bin_length) is int, "provide an interger for window length"
+        assert type(genome_class) is genomes.Genome, "provide genome class to determine windows in genome"
+        mismatch_xy_df = pd.DataFrame( columns=['chr', 'start', 'end', 'mismatch'] )
+        iter_windows = genome_class.get_bins_genome( self.g, bin_length )
+        ef_ix = 0
+        for ef in iter_windows:
+            mismatch_xy_df.loc[ef_ix, 'chr'] = genome_class.chrs[ef[0]]
+            mismatch_xy_df.loc[ef_ix, 'start'] = ef[1][0]
+            mismatch_xy_df.loc[ef_ix, 'end'] = ef[1][1]
+            mismatch_xy_df.loc[ef_ix, 'mismatch'] = 1 - np.nanmean(mismatch_xy[ef[2]])
+            ef_ix += 1
+        return( mismatch_xy_df )
+        
 
 def calculate_ld(snps):
     """
