@@ -380,7 +380,7 @@ class Genotype(AbstractGenotype):
         self._snps = snps
         self._positions = positions
         self._chr_regions = chr_regions
-        self._chrs = chrs
+        self._chrs = np.array(chrs).astype("U")
         self._accessions = accessions
         self._data_format = data_format # binary, diploid_ints, floats, int
 
@@ -622,7 +622,7 @@ class HDF5Genotype(AbstractGenotype):
 
     @property
     def chrs(self):
-        return self.h5file['positions'].attrs['chrs']
+        return self.h5file['positions'].attrs['chrs'].astype('U')
 
     @property
     def num_snps(self):
