@@ -135,7 +135,13 @@ class GenotypeCross(object):
         filter_lowcov_ix = np.where( filter_lowcov_ix < min_na_per_sample )[0]
         log.info("filtering %s samples due to very low number of informative markers" % str(samples_ids.shape[0] - filter_lowcov_ix.shape[0] ) )
         samples_gt = samples_gt.iloc[:,filter_lowcov_ix]
-        samples_dp = samples_dp[:,filter_lowcov_ix]
+        samples_dp = samples_dp[:,filter_lowcov_ix] / 2
+        ## Filter SNP positions where you have "missing" reads -- Vetmed et al. 
+        #1. bcftools -e 'INFO/RO + sum(INFO/AO) < 0.9 * INFO/DP'
+        # reference alleles + alternative alleles < 0.9 of read depth
+        # 2. Uneven mean mapping quality of ALT and REF
+        # bcftools -e 'MQM/MQMR < 0.9'
+
         samples_ids = samples_ids.iloc[ filter_lowcov_ix ]
         allSNPGenos_raw = pd.DataFrame( 
             index = pd.Series(self.commonSNPsCHR[segregating_ix[0]]).astype(str) + ":" + pd.Series(self.commonSNPsPOS[segregating_ix[0]]).astype(str),

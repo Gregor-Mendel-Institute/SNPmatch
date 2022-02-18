@@ -68,7 +68,7 @@ def save_as_hdf5_acc(g, outHDF5):
     NumSNPs = len(g.snps)
     h5file.create_dataset('accessions', data=g.accessions, shape=(NumAcc,))
     h5file.create_dataset('positions', data=g.positions, shape=(NumSNPs,),dtype='i4')
-    h5file['positions'].attrs['chrs'] = g.chrs
+    h5file['positions'].attrs['chrs'] = np.array(g.chrs, dtype = 'S')
     h5file['positions'].attrs['chr_regions'] = g.chr_regions
     h5file.create_dataset('snps', shape=(NumSNPs, NumAcc), dtype='int8', compression="gzip", chunks=((NumSNPs, 1)))
     for i in range(NumAcc):

@@ -315,7 +315,7 @@ class AbstractGenotype(object):
             num_accessions = len(self.accessions)
             h5file.create_dataset('accessions', data=self.accessions,shape=(num_accessions,))
             h5file.create_dataset('positions', data=self.positions,shape=(num_snps,),dtype='i4')
-            h5file['positions'].attrs['chrs'] = self.chrs
+            h5file['positions'].attrs['chrs'] = numpy.array(self.chrs, dtype = 'S')
             h5file['positions'].attrs['chr_regions']  = self.chr_regions
             h5file.create_dataset('snps', shape=(num_snps, len(self.accessions)),
                               dtype='int8', compression='lzf', chunks=((1000, num_accessions)),data=list(self.get_snps_iterator()))
@@ -380,7 +380,7 @@ class Genotype(AbstractGenotype):
         self._snps = snps
         self._positions = positions
         self._chr_regions = chr_regions
-        self._chrs = np.array(chrs).astype("U")
+        self._chrs = numpy.array(chrs).astype("U")
         self._accessions = accessions
         self._data_format = data_format # binary, diploid_ints, floats, int
 
