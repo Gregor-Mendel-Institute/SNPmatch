@@ -27,7 +27,13 @@ def get_fraction(x, y, y_min = 0):
         return(np.nan)
     return(float(x)/y)
 
-np_get_fraction = np.vectorize(get_fraction, excluded = "y_min")
+# np_get_fraction = np.vectorize(get_fraction, excluded = "y_min")
+def np_get_fraction(x, y, y_min = 0):
+    with np.errstate(divide='ignore', invalid='ignore'):
+        p = np.divide( x, y )
+        p[np.where(y <= y_min)] = np.nan
+    return(p)
+
 
 def likeliTest(n, y):
     ## n == total informative sites
