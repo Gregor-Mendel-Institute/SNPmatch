@@ -432,7 +432,7 @@ class Genotype(AbstractGenotype):
             start = chr_region[0]
             end = chr_region[1]
         if is_chunked:
-            for i in xrange(start,end,chunk_size):
+            for i in range(start,end,chunk_size):
                 stop_i = min(i + chunk_size, end)
                 yield(self._snps[i:stop_i])
         else:
@@ -571,7 +571,7 @@ class HDF5Genotype(AbstractGenotype):
         """
         if end is None:
             end = self.original_num_snps
-        for i in xrange(start,end,chunk_size):
+        for i in range(start,end,chunk_size):
             stop_i = min(i + chunk_size, end)
             if self.accession_filter is None or len(self.accession_filter) == 0:
                 if self.filter_snps is None:
