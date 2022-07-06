@@ -14,8 +14,7 @@ import itertools
 
 log = logging.getLogger(__name__)
 chunk_size = 1000
-np_test_identity = np.vectorize(snpmatch.test_identity, excluded=["pthres", "error_rate"])
-np_get_fraction = np.vectorize(snpmatch.get_fraction)
+
 
 class CrossIdentifier(object):
     ## class object for main CSMATCH
@@ -46,9 +45,9 @@ class CrossIdentifier(object):
     def get_window_data(bin_inds, AccList, ScoreList, NumInfoSites, error_rate=0.02):
         num_lines = len(AccList)
         (likeliScore, likeliHoodRatio) = snpmatch.GenotyperOutput.calculate_likelihoods(ScoreList, NumInfoSites)
-        identity = np_test_identity(x = ScoreList, n = NumInfoSites, error_rate = error_rate)
+        identity = snpmatch.np_test_identity(x = ScoreList, n = NumInfoSites, error_rate = error_rate)
         NumAmb = np.where(likeliHoodRatio < snpmatch.lr_thres)[0]
-        t_window = pd.DataFrame( np.column_stack((AccList, ScoreList, NumInfoSites, np_get_fraction(ScoreList, NumInfoSites), likeliScore, identity )), columns = ["acc", "snps_match", "snps_info", "score", "likelihood", "identical"] )
+        t_window = pd.DataFrame( np.column_stack((AccList, ScoreList, NumInfoSites, snpmatch.np_get_fraction(ScoreList, NumInfoSites), likeliScore, identity )), columns = ["acc", "snps_match", "snps_info", "score", "likelihood", "identical"] )
         t_window["num_amb"] = len(NumAmb)
         t_window['window_index'] = bin_inds
         t_window["acc"] = t_window["acc"].apply(str)

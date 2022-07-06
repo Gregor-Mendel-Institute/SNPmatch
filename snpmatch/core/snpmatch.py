@@ -27,12 +27,14 @@ def get_fraction(x, y, y_min = 0):
         return(np.nan)
     return(float(x)/y)
 
-# np_get_fraction = np.vectorize(get_fraction, excluded = "y_min")
-def np_get_fraction(x, y, y_min = 0):
-    with np.errstate(divide='ignore', invalid='ignore'):
-        p = np.divide( x, y )
-        p[np.where(y <= y_min)] = np.nan
-    return(p)
+np_get_fraction = np.vectorize(get_fraction, excluded = "y_min")
+# def np_get_fraction(x, y, y_min = 0):
+#     x = np.array(x)
+#     y = np.array(y)
+#     with np.errstate(divide='ignore', invalid='ignore'):
+#         p = np.divide( x, y )
+#         p[np.where(y <= y_min)] = np.nan
+#     return(p)
 
 
 def likeliTest(n, y):
@@ -52,16 +54,22 @@ def likeliTest(n, y):
     elif y == 0:
         return(np.nan)
 
-def test_identity(x, n, error_rate = 0.0005, pthres = 0.05, n_thres = 20):
-    if n <= n_thres:
-        return(np.nan)
-    st = stats.binom_test(int(n - x), n, p = float(error_rate), alternative='greater')
-    if st <= pthres:
-        return(float(0))
+def np_binom_test(x, n, p, alternative=None):
+    """
+    Code adapted from statsmodels.proportion.binom_test
+    """
+    if alternative in ['larger','greater']:
+        pval = stats.binom.sf(x-1, n, p)
+    elif alternative in ['smaller','less']:
+        pval = stats.binom.cdf(x, n, p)
     else:
-        return(float(1))
+        np_binom = np.vectorize( stats.binom_test, excluded=['p', 'alternative'])
+        pval = np_binom( x, n, p, alternative )
+    return(pval)
 
-np_test_identity = np.vectorize(test_identity, excluded=["pthres", "error_rate", "n_thres"])
+def np_test_identity(x, n, error_rate = 0.0005, pthres = 0.05):
+    st = np_binom_test(n - x, n, p = error_rate, alternative="less" )
+    return(np.array(st < pthres).astype(int))
 
 def matchGTsAccs(sampleWei, t1001snps, skip_hets_db = False):
     assert sampleWei.shape[0] == t1001snps.shape[0], "please provide same number of positions for both sample and db"
