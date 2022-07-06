@@ -68,8 +68,8 @@ def np_binom_test(x, n, p, alternative=None):
     return(pval)
 
 def np_test_identity(x, n, error_rate = 0.0005, pthres = 0.05):
-    st = np_binom_test(n - x, n, p = error_rate, alternative="less" )
-    return(np.array(st < pthres).astype(int))
+    st = np_binom_test(n - x, n, p = error_rate, alternative="greater" )
+    return(np.array(st >= pthres).astype(int))
 
 def matchGTsAccs(sampleWei, t1001snps, skip_hets_db = False):
     assert sampleWei.shape[0] == t1001snps.shape[0], "please provide same number of positions for both sample and db"
