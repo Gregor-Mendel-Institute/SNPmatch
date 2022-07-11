@@ -8,6 +8,7 @@ from glob import glob
 from snpmatch.pygwas import genotype
 from . import parsers
 from . import genomes
+from . import snpmatch
 import allel
 import itertools
 import os.path
@@ -327,6 +328,21 @@ class Genotype(object):
             mismatch_xy_df.loc[ef_ix, 'mismatch'] = 1 - np.nanmean(mismatch_xy[ef[2]])
             ef_ix += 1
         return( mismatch_xy_df )
+
+    def calculate_heterozygosity_windows(self, genome_class, window_size, sample_ix = None):
+        """
+        calculate called heterozygosity for given snps in windows
+        """
+        assert type(genome_class) is  genomes.Genome, "provide a genome class, snpmatch.genomes.Genome"
+        if sample_ix is None:
+            sample_ix = np.arange( self.g.accessions.shape[0] )
+        het_windows = pd.DataFrame(columns= sample_ix, dtype= float )
+        for ef in genome_class.get_bins_genome(self.g, window_size):
+            t_snps = self.g.snps[ef[2],:][:,sample_ix]
+            t_hets = snpmatch.np_get_fraction(np.sum(t_snps == 2, axis = 0), np.sum(numpy.ma.masked_greater_equal(t_snps, 0).mask.astype(int), axis = 0), y_min = 5  )
+            t_bed = genome_class.chrs[ef[0]] + ',' + str(ef[1][0]) + ',' + str(ef[1][1]) 
+            het_windows.loc[t_bed,] = t_hets
+        return(het_windows)
         
 
 def calculate_ld(snps):
