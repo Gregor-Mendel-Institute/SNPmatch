@@ -39,7 +39,7 @@ The above command generates three files,
 
 The two hdf5 files are the main database files used for further analysis. The files have the same information but are chunked for better efficiency. The files db.hdf5 and db.acc.hdf5 are given to the SNPmatch command under -d and -e options respectively.
 
-For *Arabidopsis thaliana* users, we have made SNP database files for the `RegMap` and `1001Genomes` panel available and can be downloaded [here](https://gmioncloud-my.sharepoint.com/personal/uemit_seren_gmi_oeaw_ac_at/_layouts/15/guestaccess.aspx?folderid=0ca806e676c154094992a9e89e5341d43&authkey=AXJPl6GkD8vNPDZJwheb6uk).
+For *Arabidopsis thaliana* users, we have made SNP database files for the `RegMap` and `1001Genomes` panel available and can be downloaded [here](https://figshare.com/collections/_/3722743).
 
 If you are working with other genomes, the above command generates a JSON file containing chromosome information. Provide this JSON file in `cross` and `genotype_cross` functions under `--genome` option.
 
