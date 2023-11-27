@@ -31,7 +31,8 @@ setup(
         "scipy",
         "numpy",
         "scikit-allel",
-        "pandas"
+        "pandas",
+        "hmmlearn"
     ],
     entry_points={
         'console_scripts': [
